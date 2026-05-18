@@ -1557,50 +1557,57 @@ function CheckoutPage() {
 
   const placeOnlineOrder = async () => {
     const razorpayLoaded = await loadRazorpayScript();
+
     if (!razorpayLoaded || !window.Razorpay) {
-      alert("Payment service failed to load. Please refresh and try again, or choose Cash on Delivery.");
+      alert("Payment service failed to load. Please use Cash on Delivery.");
       return;
     }
 
     const paymentOrder = await apiFetch("/create-payment-order", {
-      method:"POST",
-      body: JSON.stringify({amount: Number(total.toFixed(2))})
+      method: "POST",
+      body: JSON.stringify({
+        amount: Number(total.toFixed(2))
+      })
     });
-    console.log("Razorpay order response:", paymentOrder);
 
-    if (typeof Razorpay === "undefined") {
-      alert("Payment service failed to load. Please refresh and try again, or choose Cash on Delivery.");
+    if (!paymentOrder?.id || !paymentOrder?.key) {
+      alert("Payment initialization failed.");
       return;
     }
 
-    const order = await apiFetch("/orders", {
-      method:"POST",
-      body: JSON.stringify(orderPayload())
-    });
-
     return await new Promise((resolve, reject) => {
+
       const options = {
         key: paymentOrder.key,
         amount: paymentOrder.amount,
         currency: paymentOrder.currency || "INR",
         name: "Amar Veggies",
-        description: "Fresh fruits and vegetables order",
+        description: "Fresh fruits and vegetables",
         order_id: paymentOrder.id,
+
         prefill: {
           name: user.name || "",
           email: user.email || "",
           contact: form.phone || user.phone || ""
         },
-        notes: {
-          delivery_address: form.address
-        },
+
         theme: {
           color: "#2d6a4f"
         },
+
         handler: async function (response) {
+
           try {
+
+            // CREATE ORDER ONLY AFTER PAYMENT SUCCESS
+            const order = await apiFetch("/orders", {
+              method: "POST",
+              body: JSON.stringify(orderPayload())
+            });
+
+            // VERIFY PAYMENT
             await apiFetch("/verify-payment", {
-              method:"POST",
+              method: "POST",
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
@@ -1610,22 +1617,36 @@ function CheckoutPage() {
             });
 
             clear();
-            resolve({...order, payment:"Online", payment_status:"paid"});
+
+            resolve({
+              ...order,
+              payment: "Online",
+              payment_status: "paid"
+            });
+
           } catch (e) {
             reject(e);
           }
         },
+
         modal: {
           ondismiss: function () {
-            reject(new Error("Payment was cancelled"));
+            reject(new Error("Payment cancelled"));
           }
         }
       };
 
       const rz = new window.Razorpay(options);
+
       rz.on("payment.failed", function (response) {
-        reject(new Error(response.error?.description || "Payment failed. Please try again."));
+        reject(
+          new Error(
+            response.error?.description ||
+            "Payment failed. Please try again."
+          )
+        );
       });
+
       rz.open();
     });
   };
