@@ -12,3 +12,4 @@ twilio==9.6.1
 razorpay==1.4.2
 setuptools==80.9.0
 firebase-admin
+google-auth

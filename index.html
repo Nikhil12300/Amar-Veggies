@@ -14,6 +14,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -349,6 +350,7 @@ const {useState, useEffect, useContext, createContext, useCallback, useRef} = Re
    CONFIG
 ═══════════════════════════════════════════════════════════ */
 const API = "https://amar-veggies.onrender.com/api";
+const GOOGLE_CLIENT_ID = "579116114474-0cu0be6ed6n2hvktkindc28poli1rqmo.apps.googleusercontent.com";
 /* ═══════════════════════════════════════════════════════════
    API HELPERS
 ═══════════════════════════════════════════════════════════ */
@@ -590,6 +592,17 @@ function AuthProvider({children}) {
     setUser(d.user);
     return d.user;
   };
+
+  const googleLogin = async (credential) => {
+    const d = await apiFetch("/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ credential })
+    });
+    localStorage.setItem("hv_token", d.token);
+    setUser(d.user);
+    return d.user;
+  };
+
   const sendRegisterOtp = async (name, email, phone) => {
     return await apiFetch("/auth/send-otp", {
       method: "POST",
@@ -635,7 +648,22 @@ function AuthProvider({children}) {
   const logout = () => { localStorage.removeItem("hv_token"); setUser(null); };
 
   if (loading) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",color:"var(--leaf)"}}>🌿 Loading…</div>;
-  return <AuthCtx.Provider value={{user, login, sendRegisterOtp, verifyOtpRegister, sendLoginOtp, verifyOtpLogin, sendForgotPasswordOtp, resetPassword, logout}}>{children}</AuthCtx.Provider>;
+  return (
+    <AuthCtx.Provider value={{
+      user,
+      login,
+      googleLogin,
+      sendRegisterOtp,
+      verifyOtpRegister,
+      sendLoginOtp,
+      verifyOtpLogin,
+      sendForgotPasswordOtp,
+      resetPassword,
+      logout
+    }}>
+      {children}
+    </AuthCtx.Provider>
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2028,7 +2056,7 @@ function ForgotPasswordModal({onClose}) {
 }
 
 function LoginPage() {
-  const {login} = useContext(AuthCtx);
+  const {login, googleLogin} = useContext(AuthCtx);
   const {nav, params} = useContext(RouterCtx);
   const toast = useContext(ToastCtx);
   const [form, setForm] = useState({identifier:"",password:"",remember:false});
@@ -2048,7 +2076,25 @@ function LoginPage() {
   };
 
   const googleSignIn = () => {
-    toast("Google sign-in button is ready. Add a Google Client ID to enable real OAuth.", "error");
+    if (!window.google?.accounts?.id) {
+      toast("Google sign-in failed to load. Refresh and try again.", "error");
+      return;
+    }
+
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: async (response) => {
+        try {
+          const u = await googleLogin(response.credential);
+          toast(`Welcome, ${u.name}! 🌿`);
+          nav(params.redirect || (u.is_admin ? "admin" : "shop"));
+        } catch (e) {
+          setErr(e.message || "Google sign-in failed");
+        }
+      }
+    });
+
+    window.google.accounts.id.prompt();
   };
 
   return (

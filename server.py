@@ -41,6 +41,12 @@ except ImportError:
     firebase_admin = None
     credentials = None
     messaging = None
+try:
+    from google.oauth2 import id_token  # type: ignore[import-not-found]
+    from google.auth.transport import requests as google_requests  # type: ignore[import-not-found]
+except ImportError:
+    id_token = None
+    google_requests = None
 
 # ── Config ────────────────────────────────────────────────────────
 SECRET_KEY = os.getenv("SECRET_KEY", "amar-veggies-local-secret")
@@ -70,6 +76,7 @@ ADMIN_WHATSAPP_NUMBER = os.getenv("ADMIN_WHATSAPP_NUMBER", "")
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
 FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 
 # ── Database ──────────────────────────────────────────────────────
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
@@ -696,6 +703,9 @@ class LoginIn(BaseModel):
     phone: Optional[str] = None
     password: str
 
+class GoogleLoginIn(BaseModel):
+    credential: str
+
 class SendOtpIn(BaseModel):
     name: Optional[str] = ""
     email: Optional[str] = None
@@ -1157,6 +1167,46 @@ def login(body: LoginIn, db: Session = Depends(get_db)):
         raise HTTPException(401, "Invalid email/mobile number or password")
     token = create_token({"sub": str(user_dict["id"])})
     return {"token": token, "user": public_user(user_dict)}
+
+@app.post("/api/auth/google")
+def google_login(body: GoogleLoginIn, db: Session = Depends(get_db)):
+    if not GOOGLE_CLIENT_ID or id_token is None or google_requests is None:
+        raise HTTPException(500, "Google login is not configured")
+
+    try:
+        info = id_token.verify_oauth2_token(
+            body.credential,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
+    except Exception:
+        raise HTTPException(401, "Invalid Google token")
+
+    email = normalize_email(info.get("email"))
+    google_sub = info.get("sub")
+    name = info.get("name") or (email.split("@")[0] if email else "Customer")
+
+    if not email or not google_sub:
+        raise HTTPException(401, "Google account did not provide a valid email")
+
+    user = db.query(User).filter(User.email == email).first()
+
+    if not user:
+        user = User(
+            id=str(uuid.uuid4()),
+            name=name,
+            email=email,
+            phone=None,
+            password=None,
+            is_admin=0,
+            created_at=now_iso(),
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    token = create_token({"sub": user.id})
+    return {"token": token, "user": public_user(model_to_dict(user))}
 
 @app.post("/api/auth/forgot-password/send-otp")
 def forgot_password_send_otp(body: ForgotPasswordSendIn, db: Session = Depends(get_db)):
