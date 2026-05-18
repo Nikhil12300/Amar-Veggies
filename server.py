@@ -922,6 +922,10 @@ def delivery_update_order_status(
     partner: DeliveryPartner = Depends(get_current_delivery_partner),
     db: Session = Depends(get_db)
 ):
+    print("🔥 STATUS UPDATE API HIT")
+    print("Order ID:", oid)
+    print("New Status:", body.status)
+
     allowed_statuses = ["out_for_delivery", "delivered"]
     if body.status not in allowed_statuses:
         raise HTTPException(403, "Delivery partners can only mark orders picked up or delivered")
@@ -956,6 +960,9 @@ def delivery_update_order_status(
     customer = db.query(User).filter(User.id == order.user_id).first()
 
     status_text = body.status.replace("_", " ").title()
+
+    print("📲 Attempting push notification")
+    print("Customer token:", customer.fcm_token if customer else None)
 
     if customer:
         send_push_notification(
@@ -1664,6 +1671,10 @@ def get_order_tracking(
 
 @app.put("/api/orders/{oid}/status", dependencies=[Depends(require_admin)])
 def update_order_status(oid: str, body: OrderStatusIn, db: Session = Depends(get_db)):
+    print("🔥 STATUS UPDATE API HIT")
+    print("Order ID:", oid)
+    print("New Status:", body.status)
+
     if body.status not in ORDER_STATUSES:
         raise HTTPException(400, f"Invalid status. Valid: {ORDER_STATUSES}")
 
@@ -1714,6 +1725,9 @@ def update_order_status(oid: str, body: OrderStatusIn, db: Session = Depends(get
     customer = db.query(User).filter(User.id == order.user_id).first()
 
     status_text = body.status.replace("_", " ").title()
+
+    print("📲 Attempting push notification")
+    print("Customer token:", customer.fcm_token if customer else None)
 
     if customer:
         send_push_notification(
