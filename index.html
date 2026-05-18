@@ -952,7 +952,21 @@ function ProductCard({product, onDetail}) {
         <div className="card-price">
           ₹{displayPrice} ({displayWeight === 1000 ? "1 kg" : `${displayWeight}g`})
         </div>
-        {product.description && <div className="text-muted text-sm mt-1" style={{lineHeight:1.4,WebkitLineClamp:2,overflow:"hidden",display:"-webkit-box",WebkitBoxOrient:"vertical"}}>{product.description}</div>}
+        {product.description && (
+          <div
+            className="text-muted text-sm mt-1"
+            style={{
+              lineHeight: 1.4,
+              whiteSpace: "pre-line",
+              WebkitLineClamp: 3,
+              overflow: "hidden",
+              display: "-webkit-box",
+              WebkitBoxOrient: "vertical"
+            }}
+          >
+            {product.description}
+          </div>
+        )}
       </div>
       {product.available && (
         <div className="card-actions">
@@ -1281,7 +1295,18 @@ function ProductPage() {
           <div className="chip mb-2">{p.category}</div>
           <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2.2rem",fontWeight:700,marginBottom:".5rem"}}>{p.name}</h1>
           <div style={{fontSize:"1.5rem",color:"var(--leaf)",fontWeight:700,marginBottom:"1rem"}}>₹{p.price} <span style={{color:"var(--muted)",fontSize:".9rem",fontWeight:400}}>/ {p.unit}</span></div>
-          {p.description && <p style={{color:"var(--muted)",lineHeight:1.7,marginBottom:"1.5rem"}}>{p.description}</p>}
+          {p.description && (
+            <div
+              style={{
+                color: "var(--muted)",
+                lineHeight: 1.7,
+                marginBottom: "1.5rem",
+                whiteSpace: "pre-line"
+              }}
+            >
+              {p.description}
+            </div>
+          )}
           <div className="flex gap-2 items-center flex-wrap">
             <span className={`pill ${p.available?"pill-green":"pill-red"}`}>{p.available?"✓ In Stock":"✗ Out of Stock"}</span>
             {p.featured && <span className="pill" style={{background:"#fef9c3",color:"#92400e"}}>⭐ Featured</span>}
@@ -1743,6 +1768,22 @@ function CheckoutPage() {
           <div className="flex justify-between" style={{fontWeight:700,fontSize:"1.1rem",marginBottom:"1.25rem"}}>
             <span>Total</span><span style={{color:"var(--leaf)",fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem"}}>₹{total}</span>
           </div>
+          {items.some(i => Number(i.stock || 0) <= 2) && (
+            <div
+              style={{
+                background: "#fef9c3",
+                border: "1px solid #fde68a",
+                color: "#92400e",
+                borderRadius: 12,
+                padding: ".75rem .85rem",
+                fontSize: ".8rem",
+                lineHeight: 1.45,
+                marginBottom: "1rem"
+              }}
+            >
+              ⚠️ Low stock alert: Some items in this order are running low. Please confirm soon.
+            </div>
+          )}
           <div style={{borderTop:"1px solid var(--border)",borderBottom:"1px solid var(--border)",padding:"1rem 0",marginBottom:"1.25rem",fontSize:".82rem",color:"var(--muted)"}}>
             <div style={{fontWeight:700,color:"var(--ink)",marginBottom:".75rem"}}>Choose Payment Method</div>
             <label style={{display:"flex",alignItems:"center",gap:".6rem",marginBottom:".65rem",cursor:"pointer"}}>
