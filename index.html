@@ -1739,7 +1739,6 @@ function CheckoutPage() {
         <div>
           <div style={{background:"var(--white)",borderRadius:"var(--r)",border:"1.5px solid var(--border)",padding:"1.5rem",marginBottom:"1.5rem"}}>
             <h3 className="section-title mb-2" style={{fontSize:"1.3rem"}}>Delivery Details</h3>
-            {err && <div className="form-err">{err}</div>}
             <div className="field"><label>Phone Number *</label><input placeholder="e.g. 98765 43210" value={form.phone} onChange={e => setForm(f=>({...f,phone:e.target.value}))}/></div>
             <div className="field"><label>Delivery Address *</label><textarea placeholder="House no., Street, Area, Pincode" rows={3} value={form.address} onChange={e => setForm(f=>({...f,address:e.target.value}))}/></div>
             <LocationPicker value={{lat:form.delivery_lat,lng:form.delivery_lng,address:form.address,placeId:form.delivery_place_id}} onChange={(loc)=>setForm(f=>({...f,address:loc.address || f.address,delivery_lat:loc.lat,delivery_lng:loc.lng,delivery_place_id:loc.placeId || ""}))}/>
@@ -1756,6 +1755,7 @@ function CheckoutPage() {
 
         <div className="place-order-section" style={{background:"var(--white)",borderRadius:20,border:"1.5px solid var(--border)",padding:"1.5rem",position:"relative"}}>
           <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.3rem",fontWeight:700,marginBottom:"1.1rem"}}>Order Summary</h3>
+          {err && <div className="form-err">{err}</div>}
           {items.map(i => (
             <div key={i.id} className="flex justify-between mb-1" style={{fontSize:".83rem",paddingBottom:".5rem",borderBottom:"1px solid var(--border)"}}>
               <span>{i.emoji} {i.name} × {i.quantity} {i.weight === 1000 ? "1kg" : `${i.weight}g`}</span>
@@ -1768,22 +1768,6 @@ function CheckoutPage() {
           <div className="flex justify-between" style={{fontWeight:700,fontSize:"1.1rem",marginBottom:"1.25rem"}}>
             <span>Total</span><span style={{color:"var(--leaf)",fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem"}}>₹{total}</span>
           </div>
-          {items.some(i => Number(i.stock || 0) <= 2) && (
-            <div
-              style={{
-                background: "#fef9c3",
-                border: "1px solid #fde68a",
-                color: "#92400e",
-                borderRadius: 12,
-                padding: ".75rem .85rem",
-                fontSize: ".8rem",
-                lineHeight: 1.45,
-                marginBottom: "1rem"
-              }}
-            >
-              ⚠️ Low stock alert: Some items in this order are running low. Please confirm soon.
-            </div>
-          )}
           <div style={{borderTop:"1px solid var(--border)",borderBottom:"1px solid var(--border)",padding:"1rem 0",marginBottom:"1.25rem",fontSize:".82rem",color:"var(--muted)"}}>
             <div style={{fontWeight:700,color:"var(--ink)",marginBottom:".75rem"}}>Choose Payment Method</div>
             <label style={{display:"flex",alignItems:"center",gap:".6rem",marginBottom:".65rem",cursor:"pointer"}}>
