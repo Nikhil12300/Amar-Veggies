@@ -365,13 +365,6 @@ def send_email_otp(to_email: str, otp: str, purpose: str = "verification") -> bo
         return False
 
 def send_whatsapp_order_notification(order_data: Dict[str, Any]) -> bool:
-    print("📦 New order WhatsApp function called")
-    print("Sending admin WhatsApp to:", ADMIN_WHATSAPP_NUMBER)
-    print("TWILIO_ACCOUNT_SID:", bool(TWILIO_ACCOUNT_SID))
-    print("TWILIO_AUTH_TOKEN:", bool(TWILIO_AUTH_TOKEN))
-    print("TWILIO_WHATSAPP_NUMBER:", TWILIO_WHATSAPP_NUMBER)
-    print("ADMIN_WHATSAPP_NUMBER:", ADMIN_WHATSAPP_NUMBER)
-
     if (
         not TWILIO_ACCOUNT_SID
         or not TWILIO_AUTH_TOKEN
@@ -426,11 +419,6 @@ Amar Veggies
         return False
 
 def send_whatsapp_customer_status(order, status):
-    print("TWILIO_ACCOUNT_SID:", bool(TWILIO_ACCOUNT_SID))
-    print("TWILIO_AUTH_TOKEN:", bool(TWILIO_AUTH_TOKEN))
-    print("TWILIO_WHATSAPP_NUMBER:", TWILIO_WHATSAPP_NUMBER)
-    print("ADMIN_WHATSAPP_NUMBER:", ADMIN_WHATSAPP_NUMBER)
-
     if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN or not TWILIO_WHATSAPP_NUMBER:
         print("Twilio WhatsApp config missing")
         return False
@@ -976,11 +964,6 @@ def delivery_update_order_status(
             f"Your order #{order.id[-8:].upper()} is now {status_text}"
         )
 
-    try:
-        send_whatsapp_customer_status(order, body.status)
-    except Exception as e:
-        print("Customer WhatsApp notification error:", e)
-
     return model_to_dict(order)
 
 # ── Auth ──────────────────────────────────────────────────────────
@@ -1512,7 +1495,6 @@ def create_order(body: OrderIn, user: Dict[str, Any] = Depends(get_current_user)
     db.commit()
     db.refresh(order)
     try:
-        print("🚀 Triggering admin WhatsApp notification")
         send_whatsapp_order_notification({
             "user_name": user["name"],
             "phone": body.phone,
@@ -1739,11 +1721,6 @@ def update_order_status(oid: str, body: OrderStatusIn, db: Session = Depends(get
             "Amar Veggies Order Update",
             f"Your order #{order.id[-8:].upper()} is now {status_text}"
         )
-
-    try:
-        send_whatsapp_customer_status(order, body.status)
-    except Exception as e:
-        print("Customer WhatsApp notification error:", e)
 
     return model_to_dict(order)
 
