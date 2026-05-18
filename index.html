@@ -1556,6 +1556,17 @@ function CheckoutPage() {
   };
 
   const placeOnlineOrder = async () => {
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isStandalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true;
+
+    if (isMobile || isStandalone) {
+      alert("Online payment is currently supported only in browser mode. Please use Cash on Delivery.");
+      setPaymentMethod("cod");
+      return;
+    }
+
     const razorpayLoaded = await loadRazorpayScript();
 
     if (!razorpayLoaded || !window.Razorpay) {
