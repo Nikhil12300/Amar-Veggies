@@ -981,6 +981,11 @@ def delivery_update_order_status(
             f"Your order #{order.id[-8:].upper()} is now {status_text}"
         )
 
+    try:
+        send_whatsapp_customer_status(order, body.status)
+    except Exception as e:
+        print("Customer WhatsApp status error:", e)
+
     return model_to_dict(order)
 
 # ── Auth ──────────────────────────────────────────────────────────
@@ -1785,6 +1790,11 @@ def update_order_status(oid: str, body: OrderStatusIn, db: Session = Depends(get
             "Amar Veggies Order Update",
             f"Your order #{order.id[-8:].upper()} is now {status_text}"
         )
+
+    try:
+        send_whatsapp_customer_status(order, body.status)
+    except Exception as e:
+        print("Customer WhatsApp status error:", e)
 
     return model_to_dict(order)
 
