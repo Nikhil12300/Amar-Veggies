@@ -234,6 +234,10 @@ nav{background:var(--forest);position:sticky;top:0;z-index:200;height:var(--nav-
 @media(min-width:640px){.stat-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:1rem;margin-bottom:2rem}}
 .stat-card{background:var(--white);border-radius:var(--r);border:1.5px solid var(--border);padding:.9rem 1rem}
 @media(min-width:640px){.stat-card{padding:1.25rem}}
+.grid-3{display:grid;grid-template-columns:1fr;gap:1rem}
+@media(min-width:640px){.grid-3{grid-template-columns:repeat(3,1fr)}}
+.grid-3>.card{padding:1rem}
+.muted{color:var(--muted);font-size:.82rem}
 .stat-icon{font-size:1.25rem;margin-bottom:.35rem}
 .stat-val{font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:700;color:var(--leaf)}
 @media(min-width:640px){.stat-val{font-size:2rem}}
@@ -2828,6 +2832,11 @@ function AdminPage() {
   const [stats, setStats] = useState({});
   const [topProducts, setTopProducts] = useState([]);
   const [revenueChart, setRevenueChart] = useState([]);
+  const [paymentSplit, setPaymentSplit] = useState({
+    cod: 0,
+    online: 0,
+    pending: 0
+  });
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [lowStock, setLowStock] = useState([]);
@@ -2883,6 +2892,9 @@ function AdminPage() {
       .catch(() => {});
     apiFetch("/admin/analytics/revenue-chart")
       .then(setRevenueChart)
+      .catch(() => {});
+    apiFetch("/admin/analytics/payment-split")
+      .then(setPaymentSplit)
       .catch(() => {});
   };
   const loadLowStock = () => apiFetch("/admin/low-stock?limit=2").then(setLowStock).catch(()=>{});
@@ -3049,6 +3061,23 @@ function AdminPage() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="grid-3 mt-3">
+              <div className="card">
+                <div className="muted">Cash on Delivery</div>
+                <h2>{paymentSplit.cod}</h2>
+              </div>
+
+              <div className="card">
+                <div className="muted">Online Paid</div>
+                <h2>{paymentSplit.online}</h2>
+              </div>
+
+              <div className="card">
+                <div className="muted">Pending Payments</div>
+                <h2>{paymentSplit.pending}</h2>
+              </div>
             </div>
 
             <div className="table-wrap mt-3">

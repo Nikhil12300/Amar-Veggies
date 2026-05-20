@@ -1917,6 +1917,31 @@ def top_products(limit: int = 10, db: Session = Depends(get_db)):
     return result
 
 # ── Analytics ─────────────────────────────────────────────────────
+@app.get("/api/admin/analytics/payment-split", dependencies=[Depends(require_admin)])
+def payment_split(db: Session = Depends(get_db)):
+    orders = db.query(Order).all()
+
+    cod = 0
+    online = 0
+    pending = 0
+
+    for order in orders:
+        payment = (order.payment or "").lower()
+        payment_status = (order.payment_status or "").lower()
+
+        if payment == "online" and payment_status == "paid":
+            online += 1
+        elif payment == "cash on delivery":
+            cod += 1
+        else:
+            pending += 1
+
+    return {
+        "cod": cod,
+        "online": online,
+        "pending": pending
+    }
+
 @app.get("/api/admin/analytics/revenue-chart", dependencies=[Depends(require_admin)])
 def revenue_chart(days: int = 7, db: Session = Depends(get_db)):
     today = datetime.utcnow().date()
