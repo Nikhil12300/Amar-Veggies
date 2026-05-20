@@ -1885,6 +1885,37 @@ def admin_stats(db: Session = Depends(get_db)):
         "out_of_stock_products": out_of_stock_products,
     }
 
+@app.get("/api/admin/analytics/top-products", dependencies=[Depends(require_admin)])
+def top_products(limit: int = 10, db: Session = Depends(get_db)):
+    product_totals = {}
+
+    orders = db.query(Order).filter(Order.status != "cancelled").all()
+
+    for order in orders:
+        order_dict = model_to_dict(order) or {}
+        for item in order_dict.get("items", []):
+            name = item.get("name", "Unknown")
+            qty = int(item.get("quantity") or 0)
+            amount = float(item.get("line_total") or 0)
+
+            if name not in product_totals:
+                product_totals[name] = {
+                    "name": name,
+                    "quantity": 0,
+                    "revenue": 0
+                }
+
+            product_totals[name]["quantity"] += qty
+            product_totals[name]["revenue"] += amount
+
+    result = sorted(
+        product_totals.values(),
+        key=lambda x: x["revenue"],
+        reverse=True
+    )[:limit]
+
+    return result
+
 # ── Health ────────────────────────────────────────────────────────
 @app.get("/api/health")
 def health():
