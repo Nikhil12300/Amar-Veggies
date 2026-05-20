@@ -2041,14 +2041,21 @@ function OrdersPage() {
                   Partner: {tracking.delivery_partner}
                 </p>
 
+                {tracking.delivery_partner_phone && (
+                  <p className="text-sm text-muted mb-1">
+                    Phone: {tracking.delivery_partner_phone}
+                  </p>
+                )}
+
                 {tracking.delivery_live_lat && tracking.delivery_live_lng ? (
                   <>
                     <p className="text-xs text-muted mb-2">
-                      Last updated: {tracking.delivery_last_updated
+                      Last updated time: {tracking.delivery_last_updated
                         ? new Date(tracking.delivery_last_updated).toLocaleTimeString("en-IN")
                         : "Just now"}
                     </p>
 
+                    <div className="text-xs fw-700 text-muted mt-2">Live location map</div>
                     <iframe
                       width="100%"
                       height="260"
@@ -2062,12 +2069,37 @@ function OrdersPage() {
                       <a className="btn btn-primary" target="_blank" href={`https://www.google.com/maps/search/?api=1&query=${tracking.delivery_live_lat},${tracking.delivery_live_lng}`}>
                         Open live location
                       </a>
+                      {tracking.delivery_partner_phone && (
+                        <a
+                          className="btn btn-ghost"
+                          href={`tel:${tracking.delivery_partner_phone}`}
+                        >
+                          📞 Call Partner
+                        </a>
+                      )}
                     </div>
                   </>
                 ) : (
-                  <p className="text-sm text-muted">
-                    Live location will appear here once your delivery partner starts sharing it.
-                  </p>
+                  <>
+                    <p className="text-xs text-muted mb-2">
+                      Last updated time: {tracking.delivery_last_updated
+                        ? new Date(tracking.delivery_last_updated).toLocaleTimeString("en-IN")
+                        : "Not available yet"}
+                    </p>
+                    <p className="text-sm text-muted">
+                      Live location map will appear here once your delivery partner starts sharing it.
+                    </p>
+                    {tracking.delivery_partner_phone && (
+                      <div className="flex gap-1 flex-wrap mt-2">
+                        <a
+                          className="btn btn-ghost"
+                          href={`tel:${tracking.delivery_partner_phone}`}
+                        >
+                          📞 Call Partner
+                        </a>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
