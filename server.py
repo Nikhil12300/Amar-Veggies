@@ -467,7 +467,7 @@ def send_whatsapp_customer_status(order, status):
     try:
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
-        client.messages.create(
+        message = client.messages.create(
             body=f"""🌿 Amar Veggies Update
 
 Your order #{order.id[-8:].upper()} is now {status_text}.{extra_message}
@@ -478,6 +478,9 @@ Thank you for ordering!
             to=f"whatsapp:+91{normalize_phone(order.phone)}"
         )
 
+        print("Customer WhatsApp SID:", message.sid)
+        print("Customer WhatsApp status:", message.status)
+        print("Customer WhatsApp to:", f"whatsapp:+91{normalize_phone(order.phone)}")
         print("Customer WhatsApp status update sent")
         return True
 
