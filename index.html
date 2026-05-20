@@ -349,7 +349,8 @@ const {useState, useEffect, useContext, createContext, useCallback, useRef} = Re
 /* ═══════════════════════════════════════════════════════════
    CONFIG
 ═══════════════════════════════════════════════════════════ */
-const API = "https://amar-veggies.onrender.com/api";
+const API_BASE = "https://amar-veggies.onrender.com";
+const API = `${API_BASE}/api`;
 const GOOGLE_CLIENT_ID = "579116114474-0cu0be6ed6n2hvktkindc28poli1rqmo.apps.googleusercontent.com";
 /* ═══════════════════════════════════════════════════════════
    API HELPERS
@@ -484,6 +485,54 @@ async function registerFcmToken(toast) {
   }
 }
 
+async function setupPushNotifications() {
+  try {
+    if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+
+    console.log("Notification permission:", permission);
+
+    if (permission !== "granted") {
+      return;
+    }
+
+    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+      updateViaCache: 'none'
+    });
+    const messaging = initFirebaseMessaging();
+
+    if (!messaging) return;
+
+    const token = await messaging.getToken({
+      vapidKey: FIREBASE_VAPID_KEY,
+      serviceWorkerRegistration: registration
+    });
+
+    console.log("FCM Token:", token);
+
+    if (!token) return;
+
+    await fetch(`${API_BASE}/api/notifications/token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${localStorage.getItem("hv_token")}`
+      },
+      body: JSON.stringify({
+        token: token
+      })
+    });
+
+    console.log("FCM token saved");
+
+  } catch (err) {
+    console.error("Push setup failed:", err);
+  }
+}
+
 async function getPreviousCheckoutDetails() {
   const orders = await apiFetch("/orders");
   if (!Array.isArray(orders) || orders.length === 0) return null;
@@ -589,6 +638,7 @@ function AuthProvider({children}) {
   const login = async (identifier, password) => {
     const d = await apiFetch("/auth/login", {method: "POST", body: JSON.stringify({identifier, password})});
     localStorage.setItem("hv_token", d.token);
+    await setupPushNotifications();
     setUser(d.user);
     return d.user;
   };
@@ -599,6 +649,7 @@ function AuthProvider({children}) {
       body: JSON.stringify({ credential })
     });
     localStorage.setItem("hv_token", d.token);
+    await setupPushNotifications();
     setUser(d.user);
     return d.user;
   };
@@ -616,6 +667,7 @@ function AuthProvider({children}) {
       body: JSON.stringify({name, email, phone, otp, password})
     });
     localStorage.setItem("hv_token", d.token);
+    await setupPushNotifications();
     setUser(d.user);
     return d.user;
   };
@@ -633,6 +685,7 @@ function AuthProvider({children}) {
       body: JSON.stringify({email, phone, otp})
     });
     localStorage.setItem("hv_token", d.token);
+    await setupPushNotifications();
     setUser(d.user);
     return d.user;
   };
