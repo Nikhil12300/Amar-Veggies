@@ -491,27 +491,26 @@ async function setupPushNotifications() {
       return;
     }
 
+    console.log("step1: starting notification setup");
+
     const permission = await Notification.requestPermission();
 
-    console.log("Notification permission:", permission);
+    console.log("step2: permission =", permission);
 
     if (permission !== "granted") {
+      console.log("Notifications were not enabled");
       return;
     }
 
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-      updateViaCache: 'none'
-    });
     const messaging = initFirebaseMessaging();
 
     if (!messaging) return;
 
     const token = await messaging.getToken({
-      vapidKey: FIREBASE_VAPID_KEY,
-      serviceWorkerRegistration: registration
+      vapidKey: FIREBASE_VAPID_KEY
     });
 
-    console.log("FCM Token:", token);
+    console.log("step3: token =", token);
 
     if (!token) return;
 
@@ -519,14 +518,14 @@ async function setupPushNotifications() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${localStorage.getItem("hv_token")}`
+        "Authorization": `Bearer ${localStorage.getItem("token")}`
       },
       body: JSON.stringify({
-        token: token
+        token
       })
     });
 
-    console.log("FCM token saved");
+    console.log("step4: token saved");
 
   } catch (err) {
     console.error("Push setup failed:", err);
