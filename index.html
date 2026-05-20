@@ -2826,6 +2826,7 @@ function AdminPage() {
   const toast = useContext(ToastCtx);
   const [tab, setTab] = useState("dashboard");
   const [stats, setStats] = useState({});
+  const [topProducts, setTopProducts] = useState([]);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [lowStock, setLowStock] = useState([]);
@@ -2874,7 +2875,12 @@ function AdminPage() {
     toast("New order sound alerts enabled ✓");
   };
 
-  const loadStats = () => apiFetch("/admin/stats").then(setStats).catch(()=>{});
+  const loadStats = () => {
+    apiFetch("/admin/stats").then(setStats).catch(()=>{});
+    apiFetch("/admin/analytics/top-products")
+      .then(setTopProducts)
+      .catch(() => {});
+  };
   const loadLowStock = () => apiFetch("/admin/low-stock?limit=2").then(setLowStock).catch(()=>{});
   const loadProducts = () => { setLoadingP(true); apiFetch("/products").then(setProducts).catch(()=>{}).finally(()=>setLoadingP(false)); };
   const loadOrders = ({background = false} = {}) => {
@@ -3017,6 +3023,27 @@ function AdminPage() {
                   <div className="stat-label">{label}</div>
                 </div>
               ))}
+            </div>
+
+            <div className="table-wrap mt-3">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Top Product</th>
+                    <th>Qty Sold</th>
+                    <th>Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topProducts.map(p => (
+                    <tr key={p.name}>
+                      <td>{p.name}</td>
+                      <td>{p.quantity}</td>
+                      <td>₹{p.revenue}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:"1rem",marginTop:"1rem"}}>
