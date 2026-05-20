@@ -1916,6 +1916,37 @@ def top_products(limit: int = 10, db: Session = Depends(get_db)):
 
     return result
 
+# ── Analytics ─────────────────────────────────────────────────────
+@app.get("/api/admin/analytics/revenue-chart", dependencies=[Depends(require_admin)])
+def revenue_chart(days: int = 7, db: Session = Depends(get_db)):
+    today = datetime.utcnow().date()
+
+    result = []
+
+    for i in range(days - 1, -1, -1):
+        day = today - timedelta(days=i)
+
+        total = 0
+
+        orders = db.query(Order).filter(Order.status != "cancelled").all()
+
+        for order in orders:
+            try:
+                created = datetime.fromisoformat(order.created_at).date()
+
+                if created == day:
+                    total += float(order.total or 0)
+
+            except Exception:
+                pass
+
+        result.append({
+            "date": day.strftime("%d %b"),
+            "revenue": round(total, 2)
+        })
+
+    return result
+
 # ── Health ────────────────────────────────────────────────────────
 @app.get("/api/health")
 def health():
