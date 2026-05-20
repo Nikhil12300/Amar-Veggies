@@ -13,7 +13,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.12.7/Recharts.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -346,15 +345,6 @@ nav{width:100%;max-width:100vw;overflow:hidden}
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script type="text/babel">
 const {useState, useEffect, useContext, createContext, useCallback, useRef} = React;
-// const {
-//   LineChart,
-//   Line,
-//   XAxis,
-//   YAxis,
-//   CartesianGrid,
-//   Tooltip,
-//   ResponsiveContainer
-// } = Recharts;
 
 /* ═══════════════════════════════════════════════════════════
    CONFIG
@@ -3039,21 +3029,27 @@ function AdminPage() {
               ))}
             </div>
 
-            {/*
-            <div className="card mt-3" style={{padding:"1rem"}}>
-              <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.35rem",marginBottom:"1rem"}}>Revenue Trend</h3>
+            <div className="table-wrap mt-3" style={{padding:"1rem"}}>
+              <h3 className="mb-2">Revenue Trend</h3>
 
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={revenueChart}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="revenue" stroke="#2d6a4f" />
-                </LineChart>
-              </ResponsiveContainer>
+              {revenueChart.map(day => (
+                <div key={day.date} style={{marginBottom:".75rem"}}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>{day.date}</span>
+                    <span>&#8377;{day.revenue}</span>
+                  </div>
+                  <div style={{height:10,background:"var(--cream)",borderRadius:999,overflow:"hidden"}}>
+                    <div
+                      style={{
+                        height:"100%",
+                        width:`${Math.min(100, Number(day.revenue || 0) / 10)}%`,
+                        background:"var(--leaf)"
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-            */}
 
             <div className="table-wrap mt-3">
               <table className="table">
