@@ -436,6 +436,8 @@ function initFirebaseMessaging() {
 }
 
 async function registerFcmToken(toast) {
+  console.log("step0: registerFcmToken started");
+
   try {
     if (!("Notification" in window)) {
       return false;
@@ -1168,7 +1170,12 @@ function HomePage() {
   };
 
   const enableNotifications = async () => {
+    console.log("step1: enable notification button clicked");
+
     const ok = await registerFcmToken(toast);
+
+    console.log("step2: registerFcmToken result =", ok);
+
     setNotificationsEnabled(ok);
   };
 
