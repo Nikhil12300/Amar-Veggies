@@ -968,6 +968,13 @@ def delivery_update_order_status(
     db.refresh(order)
 
     customer = db.query(User).filter(User.id == order.user_id).first()
+    print("🔎 Notification debug")
+    print("Customer found:", bool(customer))
+    print("Customer phone:", order.phone)
+    print("Customer FCM token exists:", bool(customer.fcm_token) if customer else False)
+    print("Twilio SID exists:", bool(TWILIO_ACCOUNT_SID))
+    print("Twilio From exists:", bool(TWILIO_WHATSAPP_NUMBER))
+    print("Firebase credentials exists:", bool(FIREBASE_CREDENTIALS_JSON))
 
     status_text = body.status.replace("_", " ").title()
 
@@ -1778,6 +1785,13 @@ def update_order_status(oid: str, body: OrderStatusIn, db: Session = Depends(get
     db.refresh(order)
 
     customer = db.query(User).filter(User.id == order.user_id).first()
+    print("🔎 Notification debug")
+    print("Customer found:", bool(customer))
+    print("Customer phone:", order.phone)
+    print("Customer FCM token exists:", bool(customer.fcm_token) if customer else False)
+    print("Twilio SID exists:", bool(TWILIO_ACCOUNT_SID))
+    print("Twilio From exists:", bool(TWILIO_WHATSAPP_NUMBER))
+    print("Firebase credentials exists:", bool(FIREBASE_CREDENTIALS_JSON))
 
     status_text = body.status.replace("_", " ").title()
 
