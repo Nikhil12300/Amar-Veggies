@@ -236,13 +236,12 @@ app = FastAPI(title="Amar Veggies API", version="2.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://amarveggies.netlify.app",
         "https://amar.veggies.workers.dev",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "http://localhost:5500",
-        "http://127.0.0.1:5500",
-        "null",
+        "https://amarveggies.netlify.app",
+        "capacitor://localhost",
+        "http://localhost",
+        "http://localhost:3000",
+        "http://localhost:5173",
     ],
     allow_credentials=True,
     allow_methods=["*"],
