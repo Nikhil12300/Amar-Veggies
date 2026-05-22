@@ -2898,7 +2898,10 @@ function AdminPage() {
       .catch(() => {});
   };
   const loadLowStock = () => apiFetch("/admin/low-stock?limit=2").then(setLowStock).catch(()=>{});
-  const loadProducts = () => { setLoadingP(true); apiFetch("/products").then(setProducts).catch(()=>{}).finally(()=>setLoadingP(false)); };
+  const loadProducts = () => { setLoadingP(true); apiFetch("/products").then(setProducts).catch(e => {
+    console.error("PRODUCT LOAD ERROR:", e);
+    alert("PRODUCT ERROR: " + e.message);
+  }).finally(()=>setLoadingP(false)); };
   const loadOrders = ({background = false} = {}) => {
     if (!background) setLoadingO(true);
     return apiFetch("/orders")
