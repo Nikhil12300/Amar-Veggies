@@ -114,6 +114,7 @@ class DeliveryPartner(Base):
 
 class OTP(Base):
     __tablename__ = "otps"
+
     id: Mapped[str] = mapped_column(String, primary_key=True)
     email: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     phone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
@@ -136,6 +137,7 @@ class Product(Base):
     featured: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     quantity_options: Mapped[str] = mapped_column(Text, nullable=False, default="[100,250,500,1000]")
     image_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    total_purchased: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[str] = mapped_column(String, nullable=False)
 
 class StockHistory(Base):
@@ -179,6 +181,37 @@ class Order(Base):
     timeline: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[str] = mapped_column(String, nullable=False)
 
+def backfill_total_purchased():
+    db = SessionLocal()
+    try:
+        products = db.query(Product).all()
+        orders = db.query(Order).filter(Order.status != "cancelled").all()
+
+        totals = {p.id: 0 for p in products}
+        for order in orders:
+            try:
+                items = json.loads(order.items) if isinstance(order.items, str) else order.items
+            except Exception:
+                continue
+            if not isinstance(items, list):
+                continue
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                pid = item.get("product_id")
+                if pid in totals:
+                    totals[pid] += int(item.get("quantity") or 0)
+
+        for p in products:
+            p.total_purchased = totals.get(p.id, 0)
+        db.commit()
+        print("Backfilled total_purchased for existing products")
+    except Exception as e:
+        print(f"Error backfilling total_purchased: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
 def init_db():
     Base.metadata.create_all(bind=engine)
 
@@ -194,6 +227,7 @@ def init_db():
             ("orders", "delivery_last_updated", "ALTER TABLE orders ADD COLUMN delivery_last_updated VARCHAR(255)"),
             ("orders", "delivery_place_id", "ALTER TABLE orders ADD COLUMN delivery_place_id TEXT DEFAULT ''"),
             ("orders", "delivery_maps_url", "ALTER TABLE orders ADD COLUMN delivery_maps_url TEXT DEFAULT ''"),
+            ("products", "total_purchased", "ALTER TABLE products ADD COLUMN total_purchased INTEGER DEFAULT 0"),
         ]
 
         inspector = inspect(conn)
@@ -222,6 +256,7 @@ def init_db():
     except Exception as e:
         print(f"Stock column migration skipped: {e}")
 
+    backfill_total_purchased()
     print("Database ready")
 
 def get_db():
@@ -519,41 +554,13 @@ def add_total_purchased(
     db: Session,
     product_dicts: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
-    product_ids = {p.get("id") for p in product_dicts if p.get("id")}
-    totals: Dict[str, int] = {str(pid): 0 for pid in product_ids}
-
-    if not totals:
-        return product_dicts
-
-    rows = db.query(Order.items).all()
-    for (items_raw,) in rows:
-        try:
-            items = json.loads(items_raw) if isinstance(items_raw, str) else items_raw
-        except Exception:
-            continue
-
-        if not isinstance(items, list):
-            continue
-
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            product_id = str(item.get("product_id") or "")
-            if product_id in totals:
-                totals[product_id] += int(item.get("quantity") or 0)
-
-    for product in product_dicts:
-        product["total_purchased"] = totals.get(str(product.get("id")), 0)
-
     return product_dicts
 
 def add_product_total_purchased(
     db: Session,
     product_dict: Optional[Dict[str, Any]]
 ) -> Optional[Dict[str, Any]]:
-    if product_dict is None:
-        return None
-    return add_total_purchased(db, [product_dict])[0]
+    return product_dict
 
 def record_stock_history(
     db: Session,
@@ -934,7 +941,7 @@ def delivery_update_order_status(
     partner: DeliveryPartner = Depends(get_current_delivery_partner),
     db: Session = Depends(get_db)
 ):
-    print("🔥 STATUS UPDATE API HIT")
+    print("STATUS UPDATE API HIT")
     print("Order ID:", oid)
     print("New Status:", body.status)
 
@@ -970,7 +977,7 @@ def delivery_update_order_status(
     db.refresh(order)
 
     customer = db.query(User).filter(User.id == order.user_id).first()
-    print("🔎 Notification debug")
+    print("Notification debug")
     print("Customer found:", bool(customer))
     print("Customer phone:", order.phone)
     print("Customer FCM token exists:", bool(customer.fcm_token) if customer else False)
@@ -980,7 +987,7 @@ def delivery_update_order_status(
 
     status_text = body.status.replace("_", " ").title()
 
-    print("📲 Attempting push notification")
+    print("Attempting push notification")
     print("Customer token:", customer.fcm_token if customer else None)
 
     if customer:
@@ -1314,14 +1321,14 @@ def list_products(category: Optional[str] = None, search: Optional[str] = None, 
     if featured is not None:
         q = q.filter(Product.featured == (1 if featured else 0))
     products = models_to_list(q.order_by(Product.created_at.desc()).all())
-    return add_total_purchased(db, products)
+    return products
 
 @app.get("/api/products/{pid}")
 def get_product(pid: str, db: Session = Depends(get_db)):
     p = db.query(Product).filter(Product.id == pid).first()
     if not p:
         raise HTTPException(404, "Product not found")
-    return add_product_total_purchased(db, model_to_dict(p))
+    return model_to_dict(p)
 
 @app.post("/api/products", dependencies=[Depends(require_admin)])
 def create_product(body: ProductIn, db: Session = Depends(get_db)):
@@ -1339,12 +1346,13 @@ def create_product(body: ProductIn, db: Session = Depends(get_db)):
         featured=1 if p.get("featured") else 0,
         quantity_options=json.dumps(p.get("quantity_options") or [100, 250, 500, 1000]),
         image_data=None,
+        total_purchased=0,
         created_at=now_iso(),
     )
     db.add(product)
     db.commit()
     db.refresh(product)
-    return add_product_total_purchased(db, model_to_dict(product))
+    return model_to_dict(product)
 
 @app.put("/api/products/{pid}", dependencies=[Depends(require_admin)])
 def update_product(pid: str, body: ProductIn, db: Session = Depends(get_db)):
@@ -1364,7 +1372,7 @@ def update_product(pid: str, body: ProductIn, db: Session = Depends(get_db)):
     product.quantity_options = json.dumps(p.get("quantity_options") or [100, 250, 500, 1000])
     db.commit()
     db.refresh(product)
-    return add_product_total_purchased(db, model_to_dict(product))
+    return model_to_dict(product)
 
 @app.delete("/api/products/{pid}", dependencies=[Depends(require_admin)])
 def delete_product(pid: str, db: Session = Depends(get_db)):
@@ -1392,7 +1400,7 @@ def restock_product(pid: str, body: RestockIn, db: Session = Depends(get_db)):
 
     db.commit()
     db.refresh(product)
-    return add_product_total_purchased(db, model_to_dict(product))
+    return model_to_dict(product)
 
 @app.get("/api/admin/low-stock", dependencies=[Depends(require_admin)])
 def low_stock_products(limit: float = 2, db: Session = Depends(get_db)):
@@ -1533,6 +1541,7 @@ def create_order(body: OrderIn, user: Dict[str, Any] = Depends(get_current_user)
         if product.stock <= 0:
             product.stock = 0
             product.available = 0
+        product.total_purchased = (product.total_purchased or 0) + ci.quantity
         stock_changes.append((product, -stock_needed))
 
     delivery = 0 if subtotal >= 300 else 40
@@ -1735,7 +1744,7 @@ def get_order_tracking(
 
 @app.put("/api/orders/{oid}/status", dependencies=[Depends(require_admin)])
 def update_order_status(oid: str, body: OrderStatusIn, db: Session = Depends(get_db)):
-    print("🔥 STATUS UPDATE API HIT")
+    print("STATUS UPDATE API HIT")
     print("Order ID:", oid)
     print("New Status:", body.status)
 
@@ -1787,7 +1796,7 @@ def update_order_status(oid: str, body: OrderStatusIn, db: Session = Depends(get
     db.refresh(order)
 
     customer = db.query(User).filter(User.id == order.user_id).first()
-    print("🔎 Notification debug")
+    print("Notification debug")
     print("Customer found:", bool(customer))
     print("Customer phone:", order.phone)
     print("Customer FCM token exists:", bool(customer.fcm_token) if customer else False)
@@ -1797,7 +1806,7 @@ def update_order_status(oid: str, body: OrderStatusIn, db: Session = Depends(get
 
     status_text = body.status.replace("_", " ").title()
 
-    print("📲 Attempting push notification")
+    print("Attempting push notification")
     print("Customer token:", customer.fcm_token if customer else None)
 
     if customer:
