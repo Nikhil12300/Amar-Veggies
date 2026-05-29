@@ -911,6 +911,7 @@ function quantityOptionsFromText(text) {
 function defaultQuantityOptionsForUnit(unit) {
   if (isDozenUnit(unit)) return [12, 1];
   if (isBunchUnit(unit)) return [1];
+  if (isPieceUnit(unit)) return [1];
   return [100, 250, 500, 1000];
 }
 
@@ -926,9 +927,14 @@ function isBunchUnit(unit) {
   return ["bunch", "bunches"].includes(normalizeUnit(unit));
 }
 
+function isPieceUnit(unit) {
+  return ["piece", "pieces", "pc", "pcs"].includes(normalizeUnit(unit));
+}
+
 function getUnitBaseLabel(unit) {
   if (isDozenUnit(unit)) return "dozen";
   if (isBunchUnit(unit)) return "bunch";
+  if (isPieceUnit(unit)) return "piece";
   return "kg";
 }
 
@@ -956,6 +962,15 @@ function getSelectionOptions(product) {
       value: v,
       label: v === 1 ? "1 bunch" : `${v} bunches`,
       shortLabel: v === 1 ? "bunch" : `${v} bunches`,
+      priceMultiplier: v
+    }));
+  }
+
+  if (isPieceUnit(unit)) {
+    return (options.length ? options : [1]).map(v => ({
+      value: v,
+      label: v === 1 ? "1 piece" : `${v} pieces`,
+      shortLabel: v === 1 ? "piece" : `${v} pcs`,
       priceMultiplier: v
     }));
   }
