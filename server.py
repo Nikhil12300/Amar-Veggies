@@ -1,4 +1,3 @@
-
 """
 Amar Veggies - PostgreSQL/SQLAlchemy Backend API
 
@@ -12,7 +11,7 @@ Start backend:
     python server.py
 """
 
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
@@ -24,6 +23,7 @@ from sqlalchemy import create_engine, String, Integer, Float, Text, inspect, tex
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker, Session
 from sqlalchemy.exc import IntegrityError
 from twilio.rest import Client 
+from collections import defaultdict
 import uuid
 import os
 import json
@@ -34,6 +34,8 @@ import requests
 import razorpay
 import hmac
 import hashlib
+import time
+
 try:
     import firebase_admin  # type: ignore[import-not-found]
     from firebase_admin import credentials, messaging  # type: ignore[import-not-found]
@@ -284,6 +286,33 @@ app.add_middleware(
 )
 
 # ── Helpers ───────────────────────────────────────────────────────
+class InMemoryRateLimiter:
+    def __init__(self):
+        self.requests: Dict[str, List[float]] = defaultdict(list)
+
+    def check_rate_limit(self, key: str, limit: int, window: int) -> bool:
+        now = time.time()
+        self.requests[key] = [t for t in self.requests[key] if now - t < window]
+        if len(self.requests[key]) >= limit:
+            return False
+        self.requests[key].append(now)
+        return True
+
+rate_limiter = InMemoryRateLimiter()
+
+def rate_limit(limit: int, window_seconds: int):
+    def dependency(request: Request):
+        client_ip = request.client.host if request.client else "unknown"
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            client_ip = forwarded.split(",")[0].strip()
+            
+        key = f"{request.url.path}:{client_ip}"
+        
+        if not rate_limiter.check_rate_limit(key, limit, window_seconds):
+            raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
+    return dependency
+
 def init_firebase():
     if firebase_admin is None or credentials is None:
         print("firebase-admin is not installed; push notifications disabled")
@@ -868,7 +897,7 @@ seed_admin()
 seed_delivery_partners()
 
 # ── Delivery Partner Auth ───────────────────────────────────────
-@app.post("/api/delivery/login")
+@app.post("/api/delivery/login", dependencies=[Depends(rate_limit(limit=5, window_seconds=60))])
 def delivery_login(body: DeliveryLoginIn, db: Session = Depends(get_db)):
     phone = normalize_phone(body.phone)
     if not phone:
@@ -1030,7 +1059,7 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
     token = create_token({"sub": user.id})
     return {"token": token, "user": public_user(model_to_dict(user))}
 
-@app.post("/api/auth/send-otp")
+@app.post("/api/auth/send-otp", dependencies=[Depends(rate_limit(limit=3, window_seconds=180))])
 def send_otp(body: SendOtpIn, db: Session = Depends(get_db)):
     email = normalize_email(body.email)
     phone = normalize_phone(body.phone)
@@ -1115,7 +1144,7 @@ def verify_otp_register(body: VerifyOtpRegisterIn, db: Session = Depends(get_db)
     token = create_token({"sub": user.id})
     return {"token": token, "user": public_user(model_to_dict(user))}
 
-@app.post("/api/auth/send-login-otp")
+@app.post("/api/auth/send-login-otp", dependencies=[Depends(rate_limit(limit=3, window_seconds=180))])
 def send_login_otp(body: SendLoginOtpIn, db: Session = Depends(get_db)):
     email = normalize_email(body.email)
     phone = normalize_phone(body.phone)
@@ -1175,7 +1204,7 @@ def verify_otp_login(body: VerifyOtpLoginIn, db: Session = Depends(get_db)):
     token = create_token({"sub": user.id})
     return {"token": token, "user": public_user(model_to_dict(user))}
 
-@app.post("/api/auth/login")
+@app.post("/api/auth/login", dependencies=[Depends(rate_limit(limit=5, window_seconds=60))])
 def login(body: LoginIn, db: Session = Depends(get_db)):
     identifier = (body.identifier or body.email or body.phone or "").strip()
     if not identifier:
@@ -1229,7 +1258,7 @@ def google_login(body: GoogleLoginIn, db: Session = Depends(get_db)):
     token = create_token({"sub": user.id})
     return {"token": token, "user": public_user(model_to_dict(user))}
 
-@app.post("/api/auth/forgot-password/send-otp")
+@app.post("/api/auth/forgot-password/send-otp", dependencies=[Depends(rate_limit(limit=3, window_seconds=180))])
 def forgot_password_send_otp(body: ForgotPasswordSendIn, db: Session = Depends(get_db)):
     email, phone = split_identifier(body.identifier, body.email, body.phone)
     if not email and not phone:
@@ -1494,7 +1523,7 @@ def verify_payment(
 # ── Orders ────────────────────────────────────────────────────────
 ORDER_STATUSES = ["pending", "confirmed", "out_for_delivery", "delivered", "cancelled"]
 
-@app.post("/api/orders")
+@app.post("/api/orders", dependencies=[Depends(rate_limit(limit=5, window_seconds=60))])
 def create_order(body: OrderIn, user: Dict[str, Any] = Depends(get_current_user), db: Session = Depends(get_db)):
     items_detail = []
     subtotal = 0
