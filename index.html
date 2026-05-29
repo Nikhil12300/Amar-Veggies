@@ -896,6 +896,24 @@ function QtyControl({qty, onInc, onDec}) {
 }
 
 
+function quantityOptionsToText(options) {
+  if (!Array.isArray(options) || options.length === 0) return "";
+  return options.map(v => String(Number(v))).join(", ");
+}
+
+function quantityOptionsFromText(text) {
+  return String(text || "")
+    .split(/[,\n]/)
+    .map(v => Number(String(v).trim()))
+    .filter(v => Number.isFinite(v) && v > 0);
+}
+
+function defaultQuantityOptionsForUnit(unit) {
+  if (isDozenUnit(unit)) return [12, 1];
+  if (isBunchUnit(unit)) return [1];
+  return [100, 250, 500, 1000];
+}
+
 function normalizeUnit(unit = "kg") {
   return String(unit || "kg").trim().toLowerCase();
 }
@@ -915,19 +933,34 @@ function getUnitBaseLabel(unit) {
 }
 
 function getSelectionOptions(product) {
-  if (isDozenUnit(product.unit)) {
-    return [
-      {value: 1000, label: "1 dozen", shortLabel: "dozen", priceMultiplier: 1},
-      {value: 1000 / 12, label: "1 piece", shortLabel: "piece", priceMultiplier: 1 / 12}
-    ];
+  const unit = product?.unit || "kg";
+  const rawOptions = Array.isArray(product?.quantity_options) && product.quantity_options.length
+    ? product.quantity_options
+    : defaultQuantityOptionsForUnit(unit);
+
+  const options = rawOptions
+    .map(v => Number(v))
+    .filter(v => Number.isFinite(v) && v > 0);
+
+  if (isDozenUnit(unit)) {
+    return (options.length ? options : [12, 1]).map(v => ({
+      value: v,
+      label: v === 12 ? "1 dozen" : v === 1 ? "1 piece" : `${v} pieces`,
+      shortLabel: v === 12 ? "dozen" : v === 1 ? "piece" : `${v} pcs`,
+      priceMultiplier: v / 12
+    }));
   }
 
-  if (isBunchUnit(product.unit)) {
-    return [{value: 1000, label: "1 bunch", shortLabel: "bunch", priceMultiplier: 1}];
+  if (isBunchUnit(unit)) {
+    return (options.length ? options : [1]).map(v => ({
+      value: v,
+      label: v === 1 ? "1 bunch" : `${v} bunches`,
+      shortLabel: v === 1 ? "bunch" : `${v} bunches`,
+      priceMultiplier: v
+    }));
   }
 
-  const options = product.quantity_options?.length ? product.quantity_options : [100, 250, 500, 1000];
-  return options.map(w => ({
+  return (options.length ? options : [100, 250, 500, 1000]).map(w => ({
     value: Number(w),
     label: Number(w) === 1000 ? "1 kg" : `${Number(w)}g`,
     shortLabel: Number(w) === 1000 ? "1kg" : `${Number(w)}g`,
@@ -1042,7 +1075,7 @@ function ProductCard({product, onDetail}) {
   const qty = cart[cartKey]?.quantity || 0;
   const displayWeight = Number(weight) || 1000;
   const selectionOptions = getSelectionOptions(product);
-  const showQuantityDropdown = !isBunchUnit(product.unit);
+  const showQuantityDropdown = selectionOptions.length > 1;
   const displayPrice = formatProductPrice(product, displayWeight);
   const [favorite, setFavorite] = useState(() => getLocalFavoriteIds().includes(product.id));
 
@@ -2467,7 +2500,7 @@ function RegisterPage() {
 function ProductFormModal({product, onClose, onSaved}) {
   const toast = useContext(ToastCtx);
   const [form, setForm] = useState(product || {name:"",description:"",emoji:"🌿",category:"Vegetable",price:"",unit:"kg",stock:"",available:true,featured:false,quantity_options:[100,250,500,1000]});
-  const [quantityOptionsText, setQuantityOptionsText] = useState(quantityOptionsToText((product || {quantity_options:[100,250,500,1000]}).quantity_options));
+  const [quantityOptionsText, setQuantityOptionsText] = useState(quantityOptionsToText(product?.quantity_options || defaultQuantityOptionsForUnit(product?.unit || "kg")));
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [imgPreview, setImgPreview] = useState(product?.image_data || null);
@@ -2568,6 +2601,17 @@ function ProductFormModal({product, onClose, onSaved}) {
           <div className="field"><label>Unit *</label><input placeholder="kg, bunch, dozen…" value={form.unit} onChange={e=>f("unit")(e.target.value)}/></div>
         </div>
         <div className="field"><label>Stock *</label><input type="number" min="0" step="0.01" value={form.stock} onChange={e=>f("stock")(e.target.value)}/></div>
+        <div className="field">
+          <label>Shop dropdown options</label>
+          <input
+            placeholder={isDozenUnit(form.unit) ? "12, 1" : isBunchUnit(form.unit) ? "1" : "100, 250, 500, 1000"}
+            value={quantityOptionsText}
+            onChange={e => setQuantityOptionsText(e.target.value)}
+          />
+          <div className="text-xs text-muted mt-1">
+            Use comma-separated values. Kg uses grams (100, 250, 500, 1000). Dozen uses pieces (12 = 1 dozen, 1 = 1 piece). Bunch can be left as 1 to hide the dropdown.
+          </div>
+        </div>
         <div className="field"><label>Description</label><textarea placeholder="Short description of the product…" value={form.description} onChange={e=>f("description")(e.target.value)}/></div>
         <div className="flex gap-3 mt-1">
           <label className="toggle-label"><Toggle on={form.available} onChange={f("available")}/> Available</label>
