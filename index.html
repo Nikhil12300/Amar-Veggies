@@ -908,37 +908,25 @@ function isBunchUnit(unit) {
   return ["bunch", "bunches"].includes(normalizeUnit(unit));
 }
 
-function cleanQuantityOptions(options = []) {
-  return (Array.isArray(options) ? options : [])
-    .map(Number)
-    .filter(n => Number.isFinite(n) && n > 0);
+function getUnitBaseLabel(unit) {
+  if (isDozenUnit(unit)) return "dozen";
+  if (isBunchUnit(unit)) return "bunch";
+  return "kg";
 }
 
 function getSelectionOptions(product) {
-  const unit = normalizeUnit(product.unit);
-  const adminOptions = cleanQuantityOptions(product.quantity_options);
-
-  if (isDozenUnit(unit)) {
-    const options = adminOptions.length ? adminOptions : [12, 1];
-    return options.map(n => ({
-      value: n,
-      label: n === 12 ? "1 dozen" : n === 1 ? "1 piece" : `${n} pieces`,
-      shortLabel: n === 12 ? "dozen" : n === 1 ? "piece" : `${n} pcs`,
-      priceMultiplier: n / 12
-    }));
+  if (isDozenUnit(product.unit)) {
+    return [
+      {value: 1000, label: "1 dozen", shortLabel: "dozen", priceMultiplier: 1},
+      {value: 1000 / 12, label: "1 piece", shortLabel: "piece", priceMultiplier: 1 / 12}
+    ];
   }
 
-  if (isBunchUnit(unit)) {
-    const options = adminOptions.length ? adminOptions : [1];
-    return options.map(n => ({
-      value: n,
-      label: n === 1 ? "1 bunch" : `${n} bunches`,
-      shortLabel: n === 1 ? "bunch" : `${n} bunches`,
-      priceMultiplier: n
-    }));
+  if (isBunchUnit(product.unit)) {
+    return [{value: 1000, label: "1 bunch", shortLabel: "bunch", priceMultiplier: 1}];
   }
 
-  const options = adminOptions.length ? adminOptions : [100, 250, 500, 1000];
+  const options = product.quantity_options?.length ? product.quantity_options : [100, 250, 500, 1000];
   return options.map(w => ({
     value: Number(w),
     label: Number(w) === 1000 ? "1 kg" : `${Number(w)}g`,
@@ -952,9 +940,8 @@ function getDefaultSelection(product) {
 }
 
 function getSelectionOption(product, selectedValue) {
-  const options = getSelectionOptions(product);
-  const selected = Number(selectedValue) || options[0]?.value || 1000;
-  return options.find(o => Math.abs(Number(o.value) - selected) < 0.0001) || options[0];
+  const selected = Number(selectedValue) || 1000;
+  return getSelectionOptions(product).find(o => Math.abs(Number(o.value) - selected) < 0.0001) || getSelectionOptions(product)[0];
 }
 
 function getSelectionLabel(product, selectedValue, compact = false) {
@@ -974,17 +961,6 @@ function formatMoney(amount) {
 
 function formatProductPrice(product, selectedValue) {
   return `₹${formatMoney(getLineTotal(product, selectedValue, 1))} (${getSelectionLabel(product, selectedValue)})`;
-}
-
-function quantityOptionsToText(options) {
-  return cleanQuantityOptions(options).join(", ");
-}
-
-function quantityOptionsFromText(text) {
-  return String(text || "")
-    .split(",")
-    .map(x => Number(x.trim()))
-    .filter(n => Number.isFinite(n) && n > 0);
 }
 
 
@@ -1066,7 +1042,7 @@ function ProductCard({product, onDetail}) {
   const qty = cart[cartKey]?.quantity || 0;
   const displayWeight = Number(weight) || 1000;
   const selectionOptions = getSelectionOptions(product);
-  const showQuantityDropdown = selectionOptions.length > 1;
+  const showQuantityDropdown = !isBunchUnit(product.unit);
   const displayPrice = formatProductPrice(product, displayWeight);
   const [favorite, setFavorite] = useState(() => getLocalFavoriteIds().includes(product.id));
 
