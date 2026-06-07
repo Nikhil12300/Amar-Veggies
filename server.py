@@ -811,8 +811,8 @@ class OrderIn(BaseModel):
     delivery_lng: Optional[float] = None
     delivery_place_id: Optional[str] = ""
 
-class CreatePaymentOrderIn(BaseModel):
-    amount: float
+class CreatePaymentOrderIn(OrderIn):
+    pass
 
 class VerifyPaymentIn(BaseModel):
     razorpay_order_id: str
@@ -1455,30 +1455,52 @@ def stock_history(limit: int = 50, db: Session = Depends(get_db)):
 def create_payment_order(
     body: CreatePaymentOrderIn,
     user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     if razorpay_client is None:
         raise HTTPException(503, "Razorpay credentials are not configured")
 
-    amount_paise = int(body.amount * 100)
-    if amount_paise <= 0:
-        raise HTTPException(400, "Amount must be greater than 0")
+    order = create_order_record(
+        body=body,
+        user=user,
+        db=db,
+        payment="Online",
+        payment_status="payment_pending",
+        notify_admin=False,
+    )
+    amount_paise = int(round(float(order.total) * 100))
 
-    payment_order = razorpay_client.order.create({
-        "amount": amount_paise,
-        "currency": "INR",
-        "payment_capture": 1
-    })
+    try:
+        payment_order = razorpay_client.order.create({
+            "amount": amount_paise,
+            "currency": "INR",
+            "payment_capture": 1,
+            "receipt": order.id,
+            "notes": {
+                "order_id": order.id,
+                "user_id": user["id"],
+            }
+        })
+    except Exception as e:
+        cancel_pending_payment_order(order, db, "Payment initialization failed")
+        print("Razorpay order creation failed:", e)
+        raise HTTPException(502, "Payment initialization failed. Please try again.")
+    order.razorpay_order_id = payment_order["id"]
+    db.commit()
+    db.refresh(order)
 
     return {
         "id": payment_order["id"],
         "amount": payment_order["amount"],
         "currency": payment_order["currency"],
-        "key": RAZORPAY_KEY_ID
+        "key": RAZORPAY_KEY_ID,
+        "order": model_to_dict(order),
     }
 
 @app.post("/api/verify-payment")
 def verify_payment(
     body: VerifyPaymentIn,
+    user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     if not RAZORPAY_KEY_SECRET:
@@ -1493,16 +1515,28 @@ def verify_payment(
         hashlib.sha256
     ).hexdigest()
 
-    if generated_signature != body.razorpay_signature:
+    if not hmac.compare_digest(generated_signature, body.razorpay_signature):
         raise HTTPException(400, "Payment verification failed")
 
-    order = db.query(Order).filter(Order.id == body.order_id).first()
+    order = db.query(Order).filter(
+        Order.id == body.order_id,
+        Order.user_id == user["id"],
+    ).first()
 
     if not order:
         raise HTTPException(404, "Order not found")
+    if order.razorpay_order_id != body.razorpay_order_id:
+        raise HTTPException(400, "Payment order does not match this order")
+    if order.payment_status not in ("payment_pending", "paid"):
+        raise HTTPException(400, "This order is not awaiting online payment")
+    if order.payment_status == "paid":
+        return {
+            "ok": True,
+            "message": "Payment already verified",
+            "order": model_to_dict(order),
+        }
 
     order.payment_status = "paid"
-    order.razorpay_order_id = body.razorpay_order_id
     order.razorpay_payment_id = body.razorpay_payment_id
     order.payment = "Online"
     order.status = "confirmed"
@@ -1514,17 +1548,75 @@ def verify_payment(
     order.timeline = json.dumps(timeline)
 
     db.commit()
+    db.refresh(order)
+
+    try:
+        send_whatsapp_order_notification({
+            "user_name": order.user_name,
+            "phone": order.phone,
+            "address": order.address,
+            "items": json.loads(order.items or "[]"),
+            "total": order.total,
+            "notes": order.notes or "",
+        })
+    except Exception as e:
+        print("WhatsApp notification error:", e)
 
     return {
         "ok": True,
-        "message": "Payment verified"
+        "message": "Payment verified",
+        "order": model_to_dict(order),
     }
 
 # ── Orders ────────────────────────────────────────────────────────
 ORDER_STATUSES = ["pending", "confirmed", "out_for_delivery", "delivered", "cancelled"]
 
-@app.post("/api/orders", dependencies=[Depends(rate_limit(limit=5, window_seconds=60))])
-def create_order(body: OrderIn, user: Dict[str, Any] = Depends(get_current_user), db: Session = Depends(get_db)):
+def cancel_pending_payment_order(order: Order, db: Session, reason: str) -> None:
+    if order.payment_status != "payment_pending":
+        return
+
+    try:
+        items = json.loads(order.items or "[]")
+    except Exception:
+        items = []
+
+    for item in items:
+        product_id = item.get("product_id") if isinstance(item, dict) else None
+        if not product_id:
+            continue
+        product = db.query(Product).filter(Product.id == product_id).first()
+        if not product:
+            continue
+        restored_kg = float(item.get("stock_deducted_kg") or 0)
+        if restored_kg <= 0:
+            continue
+        product.stock = round(float(product.stock or 0) + restored_kg, 3)
+        product.available = 1
+        product.total_purchased = max(
+            0,
+            int(product.total_purchased or 0) - int(item.get("quantity") or 0)
+        )
+        record_stock_history(db, product, restored_kg, reason, order.id)
+
+    order.status = "cancelled"
+    order.payment_status = "payment_cancelled"
+    timeline = json.loads(order.timeline or "[]")
+    timeline.append({
+        "status": "cancelled",
+        "at": now_iso(),
+        "reason": reason,
+    })
+    order.timeline = json.dumps(timeline)
+    db.commit()
+
+def create_order_record(
+    body: OrderIn,
+    user: Dict[str, Any],
+    db: Session,
+    payment: str = "Cash on Delivery",
+    payment_status: str = "cod_pending",
+    notify_admin: bool = True,
+) -> Order:
     items_detail = []
     subtotal = 0
     stock_changes = []
@@ -1592,8 +1684,8 @@ def create_order(body: OrderIn, user: Dict[str, Any] = Depends(get_current_user)
         subtotal=round(subtotal, 2),
         delivery=delivery,
         total=round(subtotal + delivery, 2),
-        payment="Cash on Delivery",
-        payment_status="cod_pending",
+        payment=payment,
+        payment_status=payment_status,
         status="pending",
         timeline=json.dumps(timeline),
         created_at=now_iso(),
@@ -1603,20 +1695,44 @@ def create_order(body: OrderIn, user: Dict[str, Any] = Depends(get_current_user)
         record_stock_history(db, product, change_kg, "Order placed", order.id)
     db.commit()
     db.refresh(order)
-    try:
-        send_whatsapp_order_notification({
-            "user_name": user["name"],
-            "phone": body.phone,
-            "address": body.address,
-            "items": items_detail,
-            "total": round(subtotal + delivery, 2),
-            "notes": body.notes or "",
-        })
-    except Exception as e:
-        print("WhatsApp notification error:", e)
+    if notify_admin:
+        try:
+            send_whatsapp_order_notification({
+                "user_name": user["name"],
+                "phone": body.phone,
+                "address": body.address,
+                "items": items_detail,
+                "total": round(subtotal + delivery, 2),
+                "notes": body.notes or "",
+            })
+        except Exception as e:
+            print("WhatsApp notification error:", e)
+    return order
+
+@app.post("/api/orders", dependencies=[Depends(rate_limit(limit=5, window_seconds=60))])
+def create_order(body: OrderIn, user: Dict[str, Any] = Depends(get_current_user), db: Session = Depends(get_db)):
+    order = create_order_record(body=body, user=user, db=db)
     result = model_to_dict(order) or {}
     result["delivery_directions_url"] = make_directions_url(body.delivery_lat, body.delivery_lng, body.address)
     return result
+
+@app.post("/api/orders/{oid}/cancel-payment")
+def cancel_payment_order(
+    oid: str,
+    user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    order = db.query(Order).filter(
+        Order.id == oid,
+        Order.user_id == user["id"],
+    ).first()
+    if not order:
+        raise HTTPException(404, "Order not found")
+    if order.payment_status != "payment_pending":
+        return {"ok": True, "order": model_to_dict(order)}
+    cancel_pending_payment_order(order, db, "Payment cancelled")
+    db.refresh(order)
+    return {"ok": True, "order": model_to_dict(order)}
 
 @app.get("/api/orders")
 def list_orders(user: Dict[str, Any] = Depends(get_current_user), db: Session = Depends(get_db)):
