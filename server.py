@@ -51,26 +51,49 @@ except ImportError:
     google_requests = None
 
 # ── Config ────────────────────────────────────────────────────────
-SECRET_KEY = os.getenv("SECRET_KEY", "amar-veggies-local-secret")
+APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
+IS_PRODUCTION = APP_ENV in {"prod", "production"}
+
+def get_required_env(name: str) -> str:
+    value = os.getenv(name, "").strip()
+    if not value:
+        raise RuntimeError(f"{name} must be set when APP_ENV=production")
+    return value
+
+def get_bool_env(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+SECRET_KEY = (
+    get_required_env("SECRET_KEY")
+    if IS_PRODUCTION
+    else os.getenv("SECRET_KEY", "amar-veggies-local-secret")
+)
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./amar_veggies.db")
+DATABASE_URL = (
+    get_required_env("DATABASE_URL")
+    if IS_PRODUCTION
+    else os.getenv("DATABASE_URL", "sqlite:///./amar_veggies.db")
+)
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace(
         "postgres://",
         "postgresql://",
         1
     )
-ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
+ADMIN_EMAIL = get_required_env("ADMIN_EMAIL") if IS_PRODUCTION else os.getenv("ADMIN_EMAIL", "")
+ADMIN_PASSWORD = get_required_env("ADMIN_PASSWORD") if IS_PRODUCTION else os.getenv("ADMIN_PASSWORD", "")
 OTP_EXPIRE_MINUTES = int(os.getenv("OTP_EXPIRE_MINUTES", "10"))
 SHOP_LAT = os.getenv("SHOP_LAT", "")
 SHOP_LNG = os.getenv("SHOP_LNG", "")
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
 OTP_EMAIL_FROM = os.getenv("OTP_EMAIL_FROM", "")
 OTP_EMAIL_FROM_NAME = os.getenv("OTP_EMAIL_FROM_NAME", "Amar Veggies")
-SHOW_DEV_OTP = os.getenv("SHOW_DEV_OTP", "true").lower() == "true"
+SHOW_DEV_OTP = get_bool_env("SHOW_DEV_OTP", default=not IS_PRODUCTION)
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER", "")
@@ -79,6 +102,14 @@ RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
 FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+
+if IS_PRODUCTION:
+    if SECRET_KEY == "amar-veggies-local-secret":
+        raise RuntimeError("SECRET_KEY must not use the local development fallback in production")
+    if DATABASE_URL.startswith("sqlite"):
+        raise RuntimeError("DATABASE_URL must point to a production database when APP_ENV=production")
+    if SHOW_DEV_OTP:
+        raise RuntimeError("SHOW_DEV_OTP must be false when APP_ENV=production")
 
 # ── Database ──────────────────────────────────────────────────────
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
