@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node scripts/write-firebase-sw.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/write-firebase-sw.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },

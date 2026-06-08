@@ -1,13 +1,19 @@
 ﻿import React, {useState, useEffect, useContext, createContext, useCallback, useRef} from 'react';
 import {createRoot} from 'react-dom/client';
 import './styles.css';
+import {
+  API,
+  API_BASE,
+  FIREBASE_CONFIG,
+  FIREBASE_VAPID_KEY,
+  GOOGLE_CLIENT_ID,
+  isFirebaseConfigured,
+  isGoogleSignInConfigured,
+} from './config';
 
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    CONFIG
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-const API_BASE = "https://amar-veggies.onrender.com";
-const API = `${API_BASE}/api`;
-const GOOGLE_CLIENT_ID = "579116114474-0cu0be6ed6n2hvktkindc28poli1rqmo.apps.googleusercontent.com";
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    API HELPERS
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
@@ -64,26 +70,15 @@ function showOrderNotification(title, body) {
   console.log("Order notification skipped in foreground:", title, body);
 }
 
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyD-NLbMzqg9lLQoSIslDMHsufyOtTE_gOs",
-  authDomain: "amar-veggies-a3f2a.firebaseapp.com",
-  projectId: "amar-veggies-a3f2a",
-  storageBucket: "amar-veggies-a3f2a.firebasestorage.app",
-  messagingSenderId: "522883626327",
-  appId: "1:522883626327:web:c53a7ce54701ebbadafa12",
-  measurementId: "G-NZQ83J6LDF"
-};
-
-const FIREBASE_VAPID_KEY = "BPRudrr_7UaHMUwDjlDYsNudvsffYvOYzVDQsjF9uFKzffFq8EUa2_Cj-z-_l8n8b6xkVus0ZYgwWbrRFVOun30";
 
 let firebaseMessaging = null;
 
 function initFirebaseMessaging() {
+  if (!isFirebaseConfigured()) return null;
   if (!("firebase" in window)) return null;
 
   if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
+    firebase.initializeApp(FIREBASE_CONFIG);
   }
 
   firebaseMessaging = firebase.messaging();
@@ -1968,6 +1963,11 @@ function LoginPage() {
   };
 
   const googleSignIn = () => {
+    if (!isGoogleSignInConfigured()) {
+      toast("Google sign-in is not configured", "error");
+      return;
+    }
+
     if (!window.google?.accounts?.id) {
       toast("Google sign-in failed to load. Refresh and try again.", "error");
       return;
@@ -3178,3 +3178,8 @@ function AppInner() {
 }
 
 createRoot(document.getElementById("root")).render(<App/>);
+
+
+
+
+
