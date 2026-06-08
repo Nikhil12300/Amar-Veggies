@@ -35,15 +35,18 @@ import hmac
 import hashlib
 import time
 import logging
+import importlib
 
+redis: Optional[Any] = None
+boto3: Optional[Any] = None
 try:
-    import redis  # type: ignore[import-not-found]
+    redis = importlib.import_module("redis")
 except ImportError:
-    redis = None
+    pass
 try:
-    import boto3  # type: ignore[import-not-found]
+    boto3 = importlib.import_module("boto3")
 except ImportError:
-    boto3 = None
+    pass
 
 try:
     import firebase_admin  # type: ignore[import-not-found]
@@ -727,7 +730,7 @@ class ProductImageStorage:
             OBJECT_STORAGE_SECRET_ACCESS_KEY,
             OBJECT_STORAGE_PUBLIC_BASE_URL,
         ])
-        self.client = None
+        self.client: Optional[Any] = None
         if self.enabled:
             if boto3 is None:
                 raise RuntimeError("boto3 is required for object storage uploads")
@@ -764,8 +767,11 @@ class ProductImageStorage:
 
     def upload(self, product_id: str, filename: str, content_type: str, data: bytes) -> Dict[str, str]:
         self.require_enabled()
+        client = self.client
+        if client is None:
+            raise HTTPException(503, "Product image storage client is not available")
         key = self.build_key(product_id, filename, content_type)
-        self.client.put_object(
+        client.put_object(
             Bucket=OBJECT_STORAGE_BUCKET,
             Key=key,
             Body=data,
@@ -778,7 +784,10 @@ class ProductImageStorage:
         if not key:
             return
         self.require_enabled()
-        self.client.delete_object(Bucket=OBJECT_STORAGE_BUCKET, Key=key)
+        client = self.client
+        if client is None:
+            raise HTTPException(503, "Product image storage client is not available")
+        client.delete_object(Bucket=OBJECT_STORAGE_BUCKET, Key=key)
 
 product_image_storage = ProductImageStorage()
 
