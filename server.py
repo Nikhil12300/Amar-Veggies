@@ -35,6 +35,7 @@ import razorpay
 import hmac
 import hashlib
 import time
+import logging
 
 try:
     import firebase_admin  # type: ignore[import-not-found]
@@ -49,6 +50,66 @@ try:
 except ImportError:
     id_token = None
     google_requests = None
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger("amar_veggies")
+
+def redact_tail(value: Any, visible: int = 4) -> Optional[str]:
+    if value is None:
+        return None
+    text_value = str(value)
+    if not text_value:
+        return ""
+    if len(text_value) <= visible:
+        return "*" * len(text_value)
+    return f"{'*' * max(4, len(text_value) - visible)}{text_value[-visible:]}"
+
+def redact_phone(value: Optional[str]) -> Optional[str]:
+    digits = re.sub(r"\D", "", value or "")
+    if not digits:
+        return None
+    return redact_tail(digits, visible=4)
+
+def truncate_log_value(value: Any, limit: int = 500) -> str:
+    text_value = str(value)
+    if len(text_value) <= limit:
+        return text_value
+    return f"{text_value[:limit]}...<truncated>"
+
+def redact_sensitive_text(value: Any) -> str:
+    text_value = str(value)
+    text_value = re.sub(
+        r"\b(?:whatsapp:\+?)?\d{10,15}\b",
+        lambda match: redact_tail(match.group(0), visible=4) or "",
+        text_value,
+    )
+    text_value = re.sub(
+        r"\b(?:pay|order|msg|tok)_[A-Za-z0-9_=-]{8,}\b",
+        lambda match: redact_tail(match.group(0), visible=4) or "",
+        text_value,
+    )
+    text_value = re.sub(
+        r"\b[A-Za-z0-9_-]{32,}\b",
+        lambda match: redact_tail(match.group(0), visible=4) or "",
+        text_value,
+    )
+    return text_value
+
+def log_event(level: int, event: str, **fields: Any) -> None:
+    payload = {"event": event, **fields}
+    logger.log(level, json.dumps(payload, default=str, separators=(",", ":")))
+
+def log_exception_event(event: str, exc: Exception, **fields: Any) -> None:
+    log_event(
+        logging.ERROR,
+        event,
+        error_type=type(exc).__name__,
+        error=truncate_log_value(redact_sensitive_text(exc)),
+        **fields,
+    )
 
 # â”€â”€ Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
@@ -268,14 +329,14 @@ def rate_limit(limit: int, window_seconds: int):
 
 def init_firebase():
     if firebase_admin is None or credentials is None:
-        print("firebase-admin is not installed; push notifications disabled")
+        log_event(logging.WARNING, "firebase_admin_missing")
         return
 
     if firebase_admin._apps:
         return
 
     if not FIREBASE_CREDENTIALS_JSON:
-        print("Firebase credentials missing")
+        log_event(logging.WARNING, "firebase_credentials_missing")
         return
 
     cred_dict = json.loads(FIREBASE_CREDENTIALS_JSON)
@@ -321,11 +382,11 @@ def send_push_notification(token: Optional[str], title: str, body: str):
         return False
 
     if firebase_admin is None or messaging is None:
-        print("firebase-admin is not installed")
+        log_event(logging.WARNING, "firebase_admin_missing")
         return False
 
     if not firebase_admin._apps:
-        print("Firebase not initialized")
+        log_event(logging.WARNING, "firebase_not_initialized")
         return False
 
     try:
@@ -338,16 +399,16 @@ def send_push_notification(token: Optional[str], title: str, body: str):
         )
 
         response = messaging.send(message)
-        print("Push sent:", response)
+        log_event(logging.INFO, "push_sent", message_id=redact_tail(response))
         return True
 
     except Exception as e:
-        print("Push notification failed:", e)
+        log_exception_event("push_notification_failed", e)
         return False
 
 def send_email_otp(to_email: str, otp: str, purpose: str = "verification") -> bool:
     if not BREVO_API_KEY or not OTP_EMAIL_FROM:
-        print("Brevo email config missing. OTP email was not sent.")
+        log_event(logging.WARNING, "brevo_email_config_missing")
         return False
 
     subject = f"{otp} is your Amar Veggies OTP"
@@ -381,11 +442,16 @@ def send_email_otp(to_email: str, otp: str, purpose: str = "verification") -> bo
             timeout=15,
         )
         if response.status_code not in (200, 201, 202):
-            print("Brevo email failed:", response.status_code, response.text)
+            log_event(
+                logging.WARNING,
+                "brevo_email_failed",
+                status_code=response.status_code,
+                response_body=truncate_log_value(redact_sensitive_text(response.text)),
+            )
             return False
         return True
     except Exception as e:
-        print("Email send failed:", e)
+        log_exception_event("email_send_failed", e)
         return False
 
 def send_whatsapp_order_notification(order_data: Dict[str, Any]) -> bool:
@@ -395,7 +461,7 @@ def send_whatsapp_order_notification(order_data: Dict[str, Any]) -> bool:
         or not TWILIO_WHATSAPP_NUMBER
         or not ADMIN_WHATSAPP_NUMBER
     ):
-        print("Twilio WhatsApp config missing")
+        log_event(logging.WARNING, "twilio_whatsapp_config_missing")
         return False
 
     try:
@@ -435,16 +501,16 @@ Amar Veggies
             to=ADMIN_WHATSAPP_NUMBER,
         )
 
-        print("WhatsApp notification sent")
+        log_event(logging.INFO, "whatsapp_notification_sent")
         return True
 
     except Exception as e:
-        print("WhatsApp send failed:", e)
+        log_exception_event("whatsapp_send_failed", e)
         return False
 
 def send_whatsapp_customer_status(order, status):
     if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN or not TWILIO_WHATSAPP_NUMBER:
-        print("Twilio WhatsApp config missing")
+        log_event(logging.WARNING, "twilio_whatsapp_config_missing")
         return False
 
     if not order.phone:
@@ -495,15 +561,33 @@ Thank you for ordering!
             to=f"whatsapp:+91{normalize_phone(order.phone)}"
         )
 
-        print("Customer WhatsApp SID:", message.sid)
-        print("Customer WhatsApp status:", message.status)
-        print("Customer WhatsApp to:", f"whatsapp:+91{normalize_phone(order.phone)}")
-        print("Customer WhatsApp status update sent")
+        log_event(
+            logging.INFO,
+            "customer_whatsapp_status_sent",
+            message_sid=redact_tail(message.sid),
+            message_status=message.status,
+            phone=redact_phone(order.phone),
+            order_id=redact_tail(order.id),
+        )
         return True
 
     except Exception as e:
-        print("Customer WhatsApp update failed:", e)
+        log_exception_event("customer_whatsapp_update_failed", e)
         return False
+
+def log_order_notification_state(order: Order, customer: Optional[User], source: str) -> None:
+    log_event(
+        logging.INFO,
+        "order_notification_state",
+        source=source,
+        order_id=redact_tail(order.id),
+        customer_found=bool(customer),
+        phone=redact_phone(order.phone),
+        fcm_token_present=bool(customer and customer.fcm_token),
+        twilio_account_configured=bool(TWILIO_ACCOUNT_SID),
+        twilio_from_configured=bool(TWILIO_WHATSAPP_NUMBER),
+        firebase_credentials_configured=bool(FIREBASE_CREDENTIALS_JSON),
+    )
 
 def model_to_dict(obj: Any) -> Optional[Dict[str, Any]]:
     if obj is None:
@@ -792,7 +876,7 @@ class DeliveryLoginIn(BaseModel):
 # â”€â”€ Seed Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def seed_admin():
     if not ADMIN_EMAIL or not ADMIN_PASSWORD:
-        print("Admin env vars missing, skipping seed admin")
+        log_event(logging.WARNING, "seed_admin_missing_env")
         return
     db = SessionLocal()
     try:
@@ -807,11 +891,11 @@ def seed_admin():
                 is_admin=1,
                 created_at=now_iso(),
             ))
-            print("Seeded admin")
+            log_event(logging.INFO, "seed_admin_created")
         else:
             existing.password = hash_password(ADMIN_PASSWORD)
             existing.is_admin = 1
-            print("Admin password updated")
+            log_event(logging.INFO, "seed_admin_updated")
         db.commit()
     finally:
         db.close()
@@ -842,7 +926,7 @@ def seed_delivery_partners():
                 existing.active = 1
 
         db.commit()
-        print("Delivery partners seeded")
+        log_event(logging.INFO, "delivery_partners_seeded", count=len(partners))
     finally:
         db.close()
 
@@ -920,9 +1004,13 @@ def delivery_update_order_status(
     partner: DeliveryPartner = Depends(get_current_delivery_partner),
     db: Session = Depends(get_db)
 ):
-    print("STATUS UPDATE API HIT")
-    print("Order ID:", oid)
-    print("New Status:", body.status)
+    log_event(
+        logging.INFO,
+        "delivery_order_status_update_requested",
+        order_id=redact_tail(oid),
+        status=body.status,
+        partner_id=redact_tail(partner.id),
+    )
 
     allowed_statuses = ["out_for_delivery", "delivered"]
     if body.status not in allowed_statuses:
@@ -956,18 +1044,11 @@ def delivery_update_order_status(
     db.refresh(order)
 
     customer = db.query(User).filter(User.id == order.user_id).first()
-    print("Notification debug")
-    print("Customer found:", bool(customer))
-    print("Customer phone:", order.phone)
-    print("Customer FCM token exists:", bool(customer.fcm_token) if customer else False)
-    print("Twilio SID exists:", bool(TWILIO_ACCOUNT_SID))
-    print("Twilio From exists:", bool(TWILIO_WHATSAPP_NUMBER))
-    print("Firebase credentials exists:", bool(FIREBASE_CREDENTIALS_JSON))
+    log_order_notification_state(order, customer, "delivery_status_update")
 
     status_text = body.status.replace("_", " ").title()
 
-    print("Attempting push notification")
-    print("Customer token:", customer.fcm_token if customer else None)
+    log_event(logging.INFO, "push_notification_attempt", order_id=redact_tail(order.id), status=body.status)
 
     if customer:
         send_push_notification(
@@ -979,7 +1060,7 @@ def delivery_update_order_status(
     try:
         send_whatsapp_customer_status(order, body.status)
     except Exception as e:
-        print("Customer WhatsApp status error:", e)
+        log_exception_event("customer_whatsapp_status_error", e)
 
     return model_to_dict(order)
 
@@ -1433,7 +1514,7 @@ def create_payment_order(
         })
     except Exception as e:
         cancel_pending_payment_order(order, db, "Payment initialization failed")
-        print("Razorpay order creation failed:", e)
+        log_exception_event("razorpay_order_creation_failed", e, order_id=redact_tail(order.id))
         raise HTTPException(502, "Payment initialization failed. Please try again.")
     order.razorpay_order_id = payment_order["id"]
     db.commit()
@@ -1510,7 +1591,7 @@ def verify_payment(
             "notes": order.notes or "",
         })
     except Exception as e:
-        print("WhatsApp notification error:", e)
+        log_exception_event("whatsapp_notification_error", e)
 
     return {
         "ok": True,
@@ -1656,7 +1737,7 @@ def create_order_record(
                 "notes": body.notes or "",
             })
         except Exception as e:
-            print("WhatsApp notification error:", e)
+            log_exception_event("whatsapp_notification_error", e)
     return order
 
 @app.post("/api/orders", dependencies=[Depends(rate_limit(limit=5, window_seconds=60))])
@@ -1839,9 +1920,12 @@ def get_order_tracking(
 
 @app.put("/api/orders/{oid}/status", dependencies=[Depends(require_admin)])
 def update_order_status(oid: str, body: OrderStatusIn, db: Session = Depends(get_db)):
-    print("STATUS UPDATE API HIT")
-    print("Order ID:", oid)
-    print("New Status:", body.status)
+    log_event(
+        logging.INFO,
+        "admin_order_status_update_requested",
+        order_id=redact_tail(oid),
+        status=body.status,
+    )
 
     if body.status not in ORDER_STATUSES:
         raise HTTPException(400, f"Invalid status. Valid: {ORDER_STATUSES}")
@@ -1891,18 +1975,11 @@ def update_order_status(oid: str, body: OrderStatusIn, db: Session = Depends(get
     db.refresh(order)
 
     customer = db.query(User).filter(User.id == order.user_id).first()
-    print("Notification debug")
-    print("Customer found:", bool(customer))
-    print("Customer phone:", order.phone)
-    print("Customer FCM token exists:", bool(customer.fcm_token) if customer else False)
-    print("Twilio SID exists:", bool(TWILIO_ACCOUNT_SID))
-    print("Twilio From exists:", bool(TWILIO_WHATSAPP_NUMBER))
-    print("Firebase credentials exists:", bool(FIREBASE_CREDENTIALS_JSON))
+    log_order_notification_state(order, customer, "admin_status_update")
 
     status_text = body.status.replace("_", " ").title()
 
-    print("Attempting push notification")
-    print("Customer token:", customer.fcm_token if customer else None)
+    log_event(logging.INFO, "push_notification_attempt", order_id=redact_tail(order.id), status=body.status)
 
     if customer:
         send_push_notification(
@@ -1914,7 +1991,7 @@ def update_order_status(oid: str, body: OrderStatusIn, db: Session = Depends(get
     try:
         send_whatsapp_customer_status(order, body.status)
     except Exception as e:
-        print("Customer WhatsApp status error:", e)
+        log_exception_event("customer_whatsapp_status_error", e)
 
     return model_to_dict(order)
 
@@ -2116,4 +2193,6 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)
+
+
 
