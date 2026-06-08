@@ -13,6 +13,19 @@ def test_security_headers_are_set(server_module):
     assert "geolocation=()" in response.headers["permissions-policy"]
 
 
+def test_readiness_checks_database_and_safe_config(server_module):
+    client = TestClient(server_module.app)
+
+    response = client.get("/api/ready")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["checks"]["database"] is True
+    assert data["checks"]["cors_origins_configured"] is True
+    assert "SECRET_KEY" not in str(data)
+
+
 def test_cors_uses_env_origins(server_module):
     client = TestClient(server_module.app)
 

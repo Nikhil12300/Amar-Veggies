@@ -19,7 +19,7 @@ from typing import Optional, List, Any, Dict
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from sqlalchemy import create_engine, String, Integer, Float, Text
+from sqlalchemy import create_engine, String, Integer, Float, Text, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker, Session
 from sqlalchemy.exc import IntegrityError
 from twilio.rest import Client 
@@ -125,6 +125,7 @@ def log_exception_event(event: str, exc: Exception, **fields: Any) -> None:
 # â”€â”€ Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
 IS_PRODUCTION = APP_ENV in {"prod", "production"}
+APP_VERSION = os.getenv("APP_VERSION", "local")
 
 def get_required_env(name: str) -> str:
     value = os.getenv(name, "").strip()
@@ -2319,12 +2320,42 @@ def revenue_chart(days: int = 7, db: Session = Depends(get_db)):
 # â”€â”€ Health â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @app.get("/api/health")
 def health():
+    return {
+        "status": "ok",
+        "service": "Amar Veggies API",
+        "version": APP_VERSION,
+        "environment": APP_ENV,
+    }
+
+@app.get("/api/ready")
+def ready(db: Session = Depends(get_db)):
     db_type = "postgresql" if DATABASE_URL.startswith("postgres") else "sqlite"
+    checks: Dict[str, Any] = {
+        "database": False,
+        "cors_origins_configured": bool(CORS_ORIGINS),
+        "redis_rate_limiter_configured": bool(REDIS_URL),
+        "object_storage_configured": bool(product_image_storage.enabled),
+        "razorpay_configured": bool(RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET),
+        "email_otp_configured": bool(BREVO_API_KEY and OTP_EMAIL_FROM),
+        "twilio_whatsapp_configured": bool(TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_WHATSAPP_NUMBER),
+        "firebase_push_configured": bool(FIREBASE_CREDENTIALS_JSON),
+        "google_login_configured": bool(GOOGLE_CLIENT_ID),
+        "shop_location_configured": bool(SHOP_LAT and SHOP_LNG),
+    }
+    try:
+        db.execute(text("SELECT 1"))
+        checks["database"] = True
+    except Exception as e:
+        log_exception_event("readiness_database_check_failed", e)
+        raise HTTPException(503, {"status": "not_ready", "checks": checks})
+
     return {
         "status": "ok",
         "service": "Amar Veggies SQLAlchemy API",
+        "version": APP_VERSION,
+        "environment": APP_ENV,
         "database": db_type,
-        "shop_location_configured": bool(SHOP_LAT and SHOP_LNG),
+        "checks": checks,
     }
 
 # â”€â”€ Product images â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

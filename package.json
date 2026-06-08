@@ -8,6 +8,7 @@
     "dev": "vite",
     "prebuild": "node scripts/write-firebase-sw.mjs",
     "build": "vite build",
+    "check": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
