@@ -728,6 +728,10 @@ function BuyAgainSection() {
   );
 }
 
+function productImageSrc(product) {
+  return product?.image_url || product?.image_data || "";
+}
+
 function ProductCard({product, onDetail}) {
   const {user} = useContext(AuthCtx);
   const {cart, add, set} = useContext(CartCtx);
@@ -739,6 +743,7 @@ function ProductCard({product, onDetail}) {
   const selectionOptions = getSelectionOptions(product);
   const showQuantityDropdown = selectionOptions.length > 1;
   const displayPrice = formatProductPrice(product, displayWeight);
+  const imageSrc = productImageSrc(product);
   const [favorite, setFavorite] = useState(() => getLocalFavoriteIds().includes(product.id));
 
   const toggleFavorite = async (e) => {
@@ -763,8 +768,8 @@ function ProductCard({product, onDetail}) {
     <div className={`card ${!product.available?"unavail":""}`}>
       <div className="card-thumb" onClick={() => product.available && onDetail && onDetail(product)}>
         <button onClick={toggleFavorite} title={favorite ? "Remove from favorites" : "Save favorite"} style={{position:"absolute",top:8,right:8,zIndex:2,width:34,height:34,borderRadius:"50%",border:"1px solid rgba(255,255,255,.7)",background:"rgba(255,255,255,.92)",boxShadow:"0 2px 10px rgba(0,0,0,.12)",cursor:"pointer",fontSize:"1rem"}}>{favorite ? "â™¥" : "â™¡"}</button>
-        {product.image_data
-          ? <img src={product.image_data} alt={product.name}/>
+        {imageSrc
+          ? <img src={imageSrc} alt={product.name}/>
           : <span style={{fontSize:"3rem"}}>{product.emoji || "ðŸŒ¿"}</span>}
         {product.featured && <span className="card-feat-badge">â­ Featured</span>}
         {!product.available && <span className="card-out-badge">Out of Stock</span>}
@@ -1117,8 +1122,8 @@ function ProductPage() {
       <button className="btn btn-ghost mb-3" onClick={() => nav("shop")}>â† Back to Shop</button>
       <div style={{background:"var(--white)",borderRadius:20,border:"1.5px solid var(--border)",overflow:"hidden"}}>
         <div style={{height:260,background:"linear-gradient(135deg,#e8f5ee,#d8f3dc)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"5rem",overflow:"hidden",position:"relative"}}>
-          {p.image_data
-            ? <img src={p.image_data} alt={p.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+          {productImageSrc(p)
+            ? <img src={productImageSrc(p)} alt={p.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
             : <span>{p.emoji || "ðŸŒ¿"}</span>}
         </div>
         <div style={{padding:"2rem"}}>
@@ -1185,7 +1190,7 @@ function CartPage() {
         <div>
           {items.map(item => (
             <div key={item.cartKey} className="cart-item">
-              <div className="cart-item-img">{item.image_data ? <img src={item.image_data} alt={item.name}/> : (item.emoji || "ðŸŒ¿")}</div>
+              <div className="cart-item-img">{productImageSrc(item) ? <img src={productImageSrc(item)} alt={item.name}/> : (item.emoji || "ðŸŒ¿")}</div>
               <div className="cart-item-info">
                 <div className="cart-item-name">{item.name} ({getSelectionLabel(item, item.weight, true)}) Ã— {item.quantity}</div>
                 <div className="cart-item-meta">â‚¹{formatMoney(item.price)} / {getUnitBaseLabel(item.unit)}</div>
@@ -2170,7 +2175,7 @@ function ProductFormModal({product, onClose, onSaved}) {
   const [quantityOptionsText, setQuantityOptionsText] = useState(quantityOptionsToText(product?.quantity_options || defaultQuantityOptionsForUnit(product?.unit || "kg")));
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
-  const [imgPreview, setImgPreview] = useState(product?.image_data || null);
+  const [imgPreview, setImgPreview] = useState(productImageSrc(product) || null);
   const [imgFile, setImgFile] = useState(null);
   const [imgUploading, setImgUploading] = useState(false);
   const fileRef = useRef(null);
@@ -2210,9 +2215,13 @@ function ProductFormModal({product, onClose, onSaved}) {
           method: "POST",
           headers: token ? {Authorization: `Bearer ${token}`} : {},
           body: fd
+        }).then(async res => {
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.detail || "Image upload failed");
+          return data;
         });
         setImgUploading(false);
-      } else if (!imgPreview && product?.image_data) {
+      } else if (!imgPreview && productImageSrc(product)) {
         // Image was removed â€” delete it
         await apiFetch(`/products/${product.id}/image`, {method:"DELETE"});
       }
@@ -2961,8 +2970,8 @@ function AdminPage() {
                     {products.map(p => (
                       <tr key={p.id}>
                         <td><div className="flex items-center gap-1">
-  {p.image_data
-    ? <img src={p.image_data} alt={p.name} style={{width:36,height:36,borderRadius:8,objectFit:"cover",flexShrink:0}}/>
+  {productImageSrc(p)
+    ? <img src={productImageSrc(p)} alt={p.name} style={{width:36,height:36,borderRadius:8,objectFit:"cover",flexShrink:0}}/>
     : <span style={{fontSize:"1.3rem",width:36,textAlign:"center",flexShrink:0}}>{p.emoji}</span>}
   <div><div style={{fontWeight:600}}>{p.name}</div><div className="text-xs text-muted">{p.description?.slice(0,40)}{p.description?.length>40?"â€¦":""}</div></div>
 </div></td>
@@ -3178,6 +3187,7 @@ function AppInner() {
 }
 
 createRoot(document.getElementById("root")).render(<App/>);
+
 
 
 

@@ -9,8 +9,12 @@ SQLAlchemy==2.0.36
 alembic==1.14.0
 psycopg2-binary==2.9.9
 requests==2.32.3
+redis==5.2.1
+boto3==1.35.92
 twilio==9.6.1
 razorpay==1.4.2
 setuptools==80.9.0
 firebase-admin
 google-auth
+pytest==8.3.4
+httpx==0.28.1

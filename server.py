@@ -27,7 +27,6 @@ from collections import defaultdict
 import uuid
 import os
 import json
-import base64
 import random
 import re
 import requests
@@ -36,6 +35,15 @@ import hmac
 import hashlib
 import time
 import logging
+
+try:
+    import redis  # type: ignore[import-not-found]
+except ImportError:
+    redis = None
+try:
+    import boto3  # type: ignore[import-not-found]
+except ImportError:
+    boto3 = None
 
 try:
     import firebase_admin  # type: ignore[import-not-found]
@@ -127,6 +135,12 @@ def get_bool_env(name: str, default: bool) -> bool:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
+def get_csv_env(name: str, default: Optional[List[str]] = None) -> List[str]:
+    value = os.getenv(name)
+    if value is None:
+        return list(default or [])
+    return [item.strip() for item in value.split(",") if item.strip()]
+
 SECRET_KEY = (
     get_required_env("SECRET_KEY")
     if IS_PRODUCTION
@@ -163,6 +177,27 @@ RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
 FIREBASE_CREDENTIALS_JSON = os.getenv("FIREBASE_CREDENTIALS_JSON", "")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+REDIS_URL = os.getenv("REDIS_URL", "")
+TRUST_PROXY_HEADERS = get_bool_env("TRUST_PROXY_HEADERS", default=IS_PRODUCTION)
+OBJECT_STORAGE_BUCKET = os.getenv("OBJECT_STORAGE_BUCKET", "")
+OBJECT_STORAGE_REGION = os.getenv("OBJECT_STORAGE_REGION", "auto")
+OBJECT_STORAGE_ENDPOINT_URL = os.getenv("OBJECT_STORAGE_ENDPOINT_URL", "")
+OBJECT_STORAGE_ACCESS_KEY_ID = os.getenv("OBJECT_STORAGE_ACCESS_KEY_ID", "")
+OBJECT_STORAGE_SECRET_ACCESS_KEY = os.getenv("OBJECT_STORAGE_SECRET_ACCESS_KEY", "")
+OBJECT_STORAGE_PUBLIC_BASE_URL = os.getenv("OBJECT_STORAGE_PUBLIC_BASE_URL", "")
+PRODUCT_IMAGE_PREFIX = os.getenv("PRODUCT_IMAGE_PREFIX", "products")
+DEFAULT_DEV_CORS_ORIGINS = [
+    "https://amar.veggies.workers.dev",
+    "https://amarveggies.netlify.app",
+    "capacitor://localhost",
+    "http://localhost",
+    "http://localhost:3000",
+    "http://localhost:5173",
+]
+CORS_ORIGINS = get_csv_env(
+    "CORS_ORIGINS",
+    default=[] if IS_PRODUCTION else DEFAULT_DEV_CORS_ORIGINS,
+)
 
 if IS_PRODUCTION:
     if SECRET_KEY == "amar-veggies-local-secret":
@@ -171,6 +206,8 @@ if IS_PRODUCTION:
         raise RuntimeError("DATABASE_URL must point to a production database when APP_ENV=production")
     if SHOW_DEV_OTP:
         raise RuntimeError("SHOW_DEV_OTP must be false when APP_ENV=production")
+    if not CORS_ORIGINS:
+        raise RuntimeError("CORS_ORIGINS must be set when APP_ENV=production")
 
 # â”€â”€ Database â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
@@ -231,6 +268,8 @@ class Product(Base):
     featured: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     quantity_options: Mapped[str] = mapped_column(Text, nullable=False, default="[100,250,500,1000]")
     image_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    image_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    image_key: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     total_purchased: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[str] = mapped_column(String, nullable=False)
 
@@ -286,18 +325,26 @@ def get_db():
 app = FastAPI(title="Amar Veggies API", version="2.0.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://amar.veggies.workers.dev",
-        "https://amarveggies.netlify.app",
-        "capacitor://localhost",
-        "http://localhost",
-        "http://localhost:3000",
-        "http://localhost:5173",
-    ],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+    if IS_PRODUCTION:
+        response.headers.setdefault(
+            "Strict-Transport-Security",
+            "max-age=31536000; includeSubDomains",
+        )
+    return response
 
 # â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class InMemoryRateLimiter:
@@ -312,18 +359,61 @@ class InMemoryRateLimiter:
         self.requests[key].append(now)
         return True
 
-rate_limiter = InMemoryRateLimiter()
+class RedisRateLimiter:
+    def __init__(self, url: str):
+        if redis is None:
+            raise RuntimeError("redis package is not installed")
+        self.client = redis.from_url(url, decode_responses=True)
+
+    def check_rate_limit(self, key: str, limit: int, window: int) -> bool:
+        redis_key = f"rate-limit:{key}"
+        count = int(self.client.incr(redis_key))
+        if count == 1:
+            self.client.expire(redis_key, window)
+        return count <= limit
+
+def create_rate_limiter():
+    if REDIS_URL:
+        try:
+            limiter = RedisRateLimiter(REDIS_URL)
+            limiter.client.ping()
+            log_event(logging.INFO, "rate_limiter_redis_enabled")
+            return limiter
+        except Exception as e:
+            log_exception_event("rate_limiter_redis_unavailable", e)
+            if IS_PRODUCTION:
+                raise RuntimeError("Redis rate limiter is required but unavailable in production") from e
+
+    if IS_PRODUCTION:
+        log_event(logging.WARNING, "rate_limiter_in_memory_fallback")
+    return InMemoryRateLimiter()
+
+rate_limiter = create_rate_limiter()
+
+def get_client_ip(request: Request) -> str:
+    if TRUST_PROXY_HEADERS:
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        real_ip = request.headers.get("x-real-ip")
+        if real_ip:
+            return real_ip.strip()
+    return request.client.host if request.client else "unknown"
 
 def rate_limit(limit: int, window_seconds: int):
     def dependency(request: Request):
-        client_ip = request.client.host if request.client else "unknown"
-        forwarded = request.headers.get("x-forwarded-for")
-        if forwarded:
-            client_ip = forwarded.split(",")[0].strip()
-            
+        client_ip = get_client_ip(request)
         key = f"{request.url.path}:{client_ip}"
         
         if not rate_limiter.check_rate_limit(key, limit, window_seconds):
+            log_event(
+                logging.WARNING,
+                "rate_limit_exceeded",
+                path=request.url.path,
+                client_ip=redact_tail(client_ip),
+                limit=limit,
+                window_seconds=window_seconds,
+            )
             raise HTTPException(status_code=429, detail="Too many requests. Please try again later.")
     return dependency
 
@@ -628,6 +718,69 @@ def add_product_total_purchased(
     product_dict: Optional[Dict[str, Any]]
 ) -> Optional[Dict[str, Any]]:
     return product_dict
+
+class ProductImageStorage:
+    def __init__(self):
+        self.enabled = all([
+            OBJECT_STORAGE_BUCKET,
+            OBJECT_STORAGE_ACCESS_KEY_ID,
+            OBJECT_STORAGE_SECRET_ACCESS_KEY,
+            OBJECT_STORAGE_PUBLIC_BASE_URL,
+        ])
+        self.client = None
+        if self.enabled:
+            if boto3 is None:
+                raise RuntimeError("boto3 is required for object storage uploads")
+            self.client = boto3.client(
+                "s3",
+                endpoint_url=OBJECT_STORAGE_ENDPOINT_URL or None,
+                region_name=OBJECT_STORAGE_REGION,
+                aws_access_key_id=OBJECT_STORAGE_ACCESS_KEY_ID,
+                aws_secret_access_key=OBJECT_STORAGE_SECRET_ACCESS_KEY,
+            )
+
+    def require_enabled(self):
+        if not self.enabled or self.client is None:
+            raise HTTPException(
+                503,
+                "Product image storage is not configured. Set OBJECT_STORAGE_* environment variables."
+            )
+
+    def build_key(self, product_id: str, filename: str, content_type: str) -> str:
+        extension = ""
+        clean_name = re.sub(r"[^A-Za-z0-9_.-]", "-", filename or "")
+        if "." in clean_name:
+            extension = "." + clean_name.rsplit(".", 1)[-1].lower()
+        elif content_type == "image/png":
+            extension = ".png"
+        elif content_type == "image/webp":
+            extension = ".webp"
+        else:
+            extension = ".jpg"
+        return f"{PRODUCT_IMAGE_PREFIX.strip('/')}/{product_id}/{uuid.uuid4()}{extension}"
+
+    def public_url(self, key: str) -> str:
+        return f"{OBJECT_STORAGE_PUBLIC_BASE_URL.rstrip('/')}/{key}"
+
+    def upload(self, product_id: str, filename: str, content_type: str, data: bytes) -> Dict[str, str]:
+        self.require_enabled()
+        key = self.build_key(product_id, filename, content_type)
+        self.client.put_object(
+            Bucket=OBJECT_STORAGE_BUCKET,
+            Key=key,
+            Body=data,
+            ContentType=content_type,
+            CacheControl="public, max-age=31536000, immutable",
+        )
+        return {"image_key": key, "image_url": self.public_url(key)}
+
+    def delete(self, key: Optional[str]) -> None:
+        if not key:
+            return
+        self.require_enabled()
+        self.client.delete_object(Bucket=OBJECT_STORAGE_BUCKET, Key=key)
+
+product_image_storage = ProductImageStorage()
 
 def record_stock_history(
     db: Session,
@@ -1406,6 +1559,8 @@ def create_product(body: ProductIn, db: Session = Depends(get_db)):
         featured=1 if p.get("featured") else 0,
         quantity_options=json.dumps(p.get("quantity_options") or [100, 250, 500, 1000]),
         image_data=None,
+        image_url=None,
+        image_key=None,
         total_purchased=0,
         created_at=now_iso(),
     )
@@ -2174,17 +2329,41 @@ async def upload_product_image(pid: str, file: UploadFile = File(...), db: Sessi
     contents = await file.read()
     if len(contents) > 5 * 1024 * 1024:
         raise HTTPException(400, "Image must be under 5MB")
-    b64 = base64.b64encode(contents).decode("utf-8")
-    image_data = f"data:{file.content_type};base64,{b64}"
-    product.image_data = image_data
+
+    old_key = product.image_key
+    uploaded = product_image_storage.upload(
+        product.id,
+        file.filename or f"{product.id}.jpg",
+        file.content_type,
+        contents,
+    )
+    product.image_url = uploaded["image_url"]
+    product.image_key = uploaded["image_key"]
+    product.image_data = None
     db.commit()
-    return {"ok": True, "image_data": image_data}
+
+    if old_key and old_key != product.image_key:
+        try:
+            product_image_storage.delete(old_key)
+        except Exception as e:
+            log_exception_event("product_old_image_delete_failed", e, product_id=redact_tail(product.id))
+
+    return {
+        "ok": True,
+        "image_url": product.image_url,
+        "image_key": product.image_key,
+    }
 
 @app.delete("/api/products/{pid}/image", dependencies=[Depends(require_admin)])
 def delete_product_image(pid: str, db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.id == pid).first()
     if not product:
         raise HTTPException(404, "Product not found")
+    old_key = product.image_key
+    if old_key:
+        product_image_storage.delete(old_key)
+    product.image_url = None
+    product.image_key = None
     product.image_data = None
     db.commit()
     return {"ok": True}
