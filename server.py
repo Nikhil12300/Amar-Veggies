@@ -1,4 +1,4 @@
-"""
+﻿"""
 Amar Veggies - PostgreSQL/SQLAlchemy Backend API
 
 Production:
@@ -15,11 +15,11 @@ from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from typing import Optional, List, Any, Dict, Set
+from typing import Optional, List, Any, Dict
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from sqlalchemy import create_engine, String, Integer, Float, Text, inspect, text
+from sqlalchemy import create_engine, String, Integer, Float, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker, Session
 from sqlalchemy.exc import IntegrityError
 from twilio.rest import Client 
@@ -50,7 +50,7 @@ except ImportError:
     id_token = None
     google_requests = None
 
-# ── Config ────────────────────────────────────────────────────────
+# â”€â”€ Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
 IS_PRODUCTION = APP_ENV in {"prod", "production"}
 
@@ -111,7 +111,7 @@ if IS_PRODUCTION:
     if SHOW_DEV_OTP:
         raise RuntimeError("SHOW_DEV_OTP must be false when APP_ENV=production")
 
-# ── Database ──────────────────────────────────────────────────────
+# â”€â”€ Database â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, pool_pre_ping=True, connect_args=connect_args)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
@@ -161,7 +161,7 @@ class Product(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(Text, default="")
-    emoji: Mapped[str] = mapped_column(String, default="🌿")
+    emoji: Mapped[str] = mapped_column(String, default="ðŸŒ¿")
     category: Mapped[str] = mapped_column(String, nullable=False)
     price: Mapped[float] = mapped_column(Float, nullable=False)
     unit: Mapped[str] = mapped_column(String, nullable=False)
@@ -214,84 +214,6 @@ class Order(Base):
     timeline: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[str] = mapped_column(String, nullable=False)
 
-def backfill_total_purchased():
-    db = SessionLocal()
-    try:
-        products = db.query(Product).all()
-        orders = db.query(Order).filter(Order.status != "cancelled").all()
-
-        totals = {p.id: 0 for p in products}
-        for order in orders:
-            try:
-                items = json.loads(order.items) if isinstance(order.items, str) else order.items
-            except Exception:
-                continue
-            if not isinstance(items, list):
-                continue
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-                pid = item.get("product_id")
-                if pid in totals:
-                    totals[pid] += int(item.get("quantity") or 0)
-
-        for p in products:
-            p.total_purchased = totals.get(p.id, 0)
-        db.commit()
-        print("Backfilled total_purchased for existing products")
-    except Exception as e:
-        print(f"Error backfilling total_purchased: {e}")
-        db.rollback()
-    finally:
-        db.close()
-
-def init_db():
-    Base.metadata.create_all(bind=engine)
-
-    with engine.begin() as conn:
-        migrations = [
-            ("users", "fcm_token", "ALTER TABLE users ADD COLUMN fcm_token TEXT"),
-            ("orders", "payment_status", "ALTER TABLE orders ADD COLUMN payment_status VARCHAR(50) DEFAULT 'pending'"),
-            ("orders", "razorpay_order_id", "ALTER TABLE orders ADD COLUMN razorpay_order_id VARCHAR(255)"),
-            ("orders", "razorpay_payment_id", "ALTER TABLE orders ADD COLUMN razorpay_payment_id VARCHAR(255)"),
-            ("orders", "delivery_partner", "ALTER TABLE orders ADD COLUMN delivery_partner VARCHAR(255)"),
-            ("orders", "delivery_live_lat", "ALTER TABLE orders ADD COLUMN delivery_live_lat FLOAT"),
-            ("orders", "delivery_live_lng", "ALTER TABLE orders ADD COLUMN delivery_live_lng FLOAT"),
-            ("orders", "delivery_last_updated", "ALTER TABLE orders ADD COLUMN delivery_last_updated VARCHAR(255)"),
-            ("orders", "delivery_place_id", "ALTER TABLE orders ADD COLUMN delivery_place_id TEXT DEFAULT ''"),
-            ("orders", "delivery_maps_url", "ALTER TABLE orders ADD COLUMN delivery_maps_url TEXT DEFAULT ''"),
-            ("products", "total_purchased", "ALTER TABLE products ADD COLUMN total_purchased INTEGER DEFAULT 0"),
-        ]
-
-        inspector = inspect(conn)
-        columns_by_table: Dict[str, Set[str]] = {}
-        for table_name, column_name, migration in migrations:
-            if table_name not in columns_by_table:
-                columns_by_table[table_name] = {
-                    column["name"] for column in inspector.get_columns(table_name)
-                }
-            if column_name not in columns_by_table[table_name]:
-                conn.execute(text(migration))
-                columns_by_table[table_name].add(column_name)
-
-    print("Database migration completed")
-
-    # Lightweight migration for older databases where products.stock was INTEGER.
-    # This lets stock support decimal kg values like 0.5 after 500g orders.
-    try:
-        with engine.begin() as conn:
-            if DATABASE_URL.startswith("postgres"):
-                conn.execute(text("ALTER TABLE products ALTER COLUMN stock TYPE DOUBLE PRECISION USING stock::double precision"))
-            else:
-                # SQLite is dynamically typed, so existing INTEGER columns can store decimals.
-                # No table rebuild needed for local development.
-                pass
-    except Exception as e:
-        print(f"Stock column migration skipped: {e}")
-
-    backfill_total_purchased()
-    print("Database ready")
-
 def get_db():
     db = SessionLocal()
     try:
@@ -299,7 +221,7 @@ def get_db():
     finally:
         db.close()
 
-# ── App ───────────────────────────────────────────────────────────
+# â”€â”€ App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 app = FastAPI(title="Amar Veggies API", version="2.0.0")
 app.add_middleware(
     CORSMiddleware,
@@ -316,7 +238,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Helpers ───────────────────────────────────────────────────────
+# â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class InMemoryRateLimiter:
     def __init__(self):
         self.requests: Dict[str, List[float]] = defaultdict(list)
@@ -360,7 +282,8 @@ def init_firebase():
     cred = credentials.Certificate(cred_dict)
     firebase_admin.initialize_app(cred)
 
-init_firebase()
+if os.getenv("SKIP_EXTERNAL_SERVICES") != "1":
+    init_firebase()
 
 def now_iso():
     return datetime.utcnow().isoformat()
@@ -481,28 +404,28 @@ def send_whatsapp_order_notification(order_data: Dict[str, Any]) -> bool:
         items_text = ""
         for item in order_data.get("items", []):
             items_text += (
-                f"• {item.get('name')} "
-                f"({item.get('selected_weight')}g × {item.get('quantity')})\n"
+                f"â€¢ {item.get('name')} "
+                f"({item.get('selected_weight')}g Ã— {item.get('quantity')})\n"
             )
 
         message_body = f"""
-🛒 *NEW ORDER RECEIVED*
+ðŸ›’ *NEW ORDER RECEIVED*
 
-👤 Customer: {order_data.get('user_name')}
-📞 Phone: {order_data.get('phone')}
+ðŸ‘¤ Customer: {order_data.get('user_name')}
+ðŸ“ž Phone: {order_data.get('phone')}
 
-📍 Address:
+ðŸ“ Address:
 {order_data.get('address')}
 
-🧺 Items:
+ðŸ§º Items:
 {items_text}
 
-💰 Total: ₹{order_data.get('total')}
+ðŸ’° Total: â‚¹{order_data.get('total')}
 
-📝 Notes:
+ðŸ“ Notes:
 {order_data.get('notes') or 'None'}
 
-━━━━━━━━━━━━━━
+â”â”â”â”â”â”â”â”â”â”â”â”â”â”
 Amar Veggies
 """
 
@@ -540,7 +463,7 @@ def send_whatsapp_customer_status(order, status):
     extra_message = ""
 
     if status == "confirmed":
-        extra_message = "\n\n🧺 Your groceries are being prepared."
+        extra_message = "\n\nðŸ§º Your groceries are being prepared."
 
     elif status == "out_for_delivery":
         partner = order.delivery_partner or "our delivery partner"
@@ -549,20 +472,20 @@ def send_whatsapp_customer_status(order, status):
 
         extra_message = f"""
 
-🚚 Your order is on the way with {partner}.
+ðŸšš Your order is on the way with {partner}.
 
-📍 Track location:
+ðŸ“ Track location:
     {tracking_link}
     """
 
     elif status == "delivered":
-        extra_message = "\n\n✅ Delivered successfully. Thank you for shopping with Amar Veggies!"
+        extra_message = "\n\nâœ… Delivered successfully. Thank you for shopping with Amar Veggies!"
 
     try:
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
         message = client.messages.create(
-            body=f"""🌿 Amar Veggies Update
+            body=f"""ðŸŒ¿ Amar Veggies Update
 
 Your order #{order.id[-8:].upper()} is now {status_text}.{extra_message}
 
@@ -689,7 +612,7 @@ def get_user_by_email_or_phone(db: Session, email: Optional[str], phone: Optiona
         return db.query(User).filter(User.phone == phone).first()
     return None
 
-# ── Security ──────────────────────────────────────────────────────
+# â”€â”€ Security â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer = HTTPBearer(auto_error=False)
 razorpay_client: Optional[Any] = None
@@ -760,7 +683,7 @@ def require_admin(user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str,
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
 
-# ── Schemas ───────────────────────────────────────────────────────
+# â”€â”€ Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 class RegisterIn(BaseModel):
     name: str
     email: str
@@ -814,7 +737,7 @@ class FcmTokenIn(BaseModel):
 class ProductIn(BaseModel):
     name: str
     description: Optional[str] = ""
-    emoji: Optional[str] = "🌿"
+    emoji: Optional[str] = "ðŸŒ¿"
     category: str
     price: float
     unit: str
@@ -866,7 +789,7 @@ class DeliveryLoginIn(BaseModel):
     phone: str
     password: str
 
-# ── Seed Admin ────────────────────────────────────────────────────
+# â”€â”€ Seed Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def seed_admin():
     if not ADMIN_EMAIL or not ADMIN_PASSWORD:
         print("Admin env vars missing, skipping seed admin")
@@ -923,11 +846,7 @@ def seed_delivery_partners():
     finally:
         db.close()
 
-init_db()
-seed_admin()
-seed_delivery_partners()
-
-# ── Delivery Partner Auth ───────────────────────────────────────
+# â”€â”€ Delivery Partner Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @app.post("/api/delivery/login", dependencies=[Depends(rate_limit(limit=5, window_seconds=60))])
 def delivery_login(body: DeliveryLoginIn, db: Session = Depends(get_db)):
     phone = normalize_phone(body.phone)
@@ -1064,7 +983,7 @@ def delivery_update_order_status(
 
     return model_to_dict(order)
 
-# ── Auth ──────────────────────────────────────────────────────────
+# â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @app.post("/api/auth/register")
 def register(body: RegisterIn, db: Session = Depends(get_db)):
     email = normalize_email(body.email)
@@ -1370,7 +1289,7 @@ def save_fcm_token(
 
     return {"ok": True}
 
-# ── Products ──────────────────────────────────────────────────────
+# â”€â”€ Products â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @app.get("/api/products")
 def list_products(category: Optional[str] = None, search: Optional[str] = None, featured: Optional[bool] = None, db: Session = Depends(get_db)):
     q = db.query(Product)
@@ -1397,7 +1316,7 @@ def create_product(body: ProductIn, db: Session = Depends(get_db)):
         id=str(uuid.uuid4()),
         name=p["name"],
         description=p.get("description", ""),
-        emoji=p.get("emoji", "🌿"),
+        emoji=p.get("emoji", "ðŸŒ¿"),
         category=p["category"],
         price=p["price"],
         unit=p["unit"],
@@ -1422,7 +1341,7 @@ def update_product(pid: str, body: ProductIn, db: Session = Depends(get_db)):
     p = body.dict()
     product.name = p["name"]
     product.description = p.get("description", "")
-    product.emoji = p.get("emoji", "🌿")
+    product.emoji = p.get("emoji", "ðŸŒ¿")
     product.category = p["category"]
     product.price = p["price"]
     product.unit = p["unit"]
@@ -1599,7 +1518,7 @@ def verify_payment(
         "order": model_to_dict(order),
     }
 
-# ── Orders ────────────────────────────────────────────────────────
+# â”€â”€ Orders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 ORDER_STATUSES = ["pending", "confirmed", "out_for_delivery", "delivered", "cancelled"]
 
 def cancel_pending_payment_order(order: Order, db: Session, reason: str) -> None:
@@ -1680,7 +1599,7 @@ def create_order_record(
         items_detail.append({
             "product_id": ci.product_id,
             "name": p["name"],
-            "emoji": p.get("emoji", "🌿"),
+            "emoji": p.get("emoji", "ðŸŒ¿"),
             "price": p["price"],
             "unit": p["unit"],
             "quantity": ci.quantity,
@@ -2030,7 +1949,7 @@ def assign_delivery_partner(
 
     return model_to_dict(order)
 
-# ── Admin stats ───────────────────────────────────────────────────
+# â”€â”€ Admin stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @app.get("/api/admin/stats", dependencies=[Depends(require_admin)])
 def admin_stats(db: Session = Depends(get_db)):
     total_orders = db.query(Order).count()
@@ -2100,7 +2019,7 @@ def top_products(limit: int = 10, db: Session = Depends(get_db)):
 
     return result
 
-# ── Analytics ─────────────────────────────────────────────────────
+# â”€â”€ Analytics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @app.get("/api/admin/analytics/payment-split", dependencies=[Depends(require_admin)])
 def payment_split(db: Session = Depends(get_db)):
     orders = db.query(Order).all()
@@ -2156,7 +2075,7 @@ def revenue_chart(days: int = 7, db: Session = Depends(get_db)):
 
     return result
 
-# ── Health ────────────────────────────────────────────────────────
+# â”€â”€ Health â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @app.get("/api/health")
 def health():
     db_type = "postgresql" if DATABASE_URL.startswith("postgres") else "sqlite"
@@ -2167,7 +2086,7 @@ def health():
         "shop_location_configured": bool(SHOP_LAT and SHOP_LNG),
     }
 
-# ── Product images ────────────────────────────────────────────────
+# â”€â”€ Product images â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @app.post("/api/products/{pid}/image", dependencies=[Depends(require_admin)])
 async def upload_product_image(pid: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.id == pid).first()
@@ -2197,3 +2116,4 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)
+
