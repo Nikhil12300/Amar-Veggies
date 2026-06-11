@@ -40,14 +40,19 @@ def run_migrations_online():
         poolclass=pool.NullPool,
     )
 
-    with connectable.connect() as connection:
-        connection.execute(text("ALTER TABLE IF EXISTS alembic_version ALTER COLUMN version_num TYPE VARCHAR(255)"))
-        connection.commit()
+    # Fix old Alembic version column length before migrations
+    with connectable.begin() as connection:
+        connection.execute(text(
+            "ALTER TABLE IF EXISTS alembic_version "
+            "ALTER COLUMN version_num TYPE VARCHAR(255)"
+        ))
 
+    # Run actual migrations on a fresh connection
+    with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)
 
-    with context.begin_transaction():
-        context.run_migrations()
+        with context.begin_transaction():
+            context.run_migrations()
 
 
 if context.is_offline_mode():
