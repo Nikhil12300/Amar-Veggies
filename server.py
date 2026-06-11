@@ -277,6 +277,17 @@ class Product(Base):
     total_purchased: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[str] = mapped_column(String, nullable=False)
 
+class Coupon(Base):
+    __tablename__ = "coupons"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    code: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    discountType: Mapped[str] = mapped_column(String, nullable=False)
+    discountValue: Mapped[float] = mapped_column(Float, nullable=False)
+    minOrderAmount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    isActive: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    expiresAt: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    created_at: Mapped[str] = mapped_column(String, nullable=False)
+
 class StockHistory(Base):
     __tablename__ = "stock_history"
     id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -706,10 +717,60 @@ def model_to_dict(obj: Any) -> Optional[Dict[str, Any]]:
         d["available"] = bool(d["available"])
     if "featured" in d:
         d["featured"] = bool(d["featured"])
+    if "isActive" in d:
+        d["isActive"] = bool(d["isActive"])
     return d
 
 def models_to_list(rows: List[Any]) -> List[Dict[str, Any]]:
     return [d for d in (model_to_dict(r) for r in rows) if d is not None]
+
+def normalize_coupon_code(code: str) -> str:
+    return re.sub(r"\s+", "", (code or "")).upper()
+
+def parse_optional_iso_datetime(value: Optional[str], field_name: str) -> Optional[str]:
+    if value in (None, ""):
+        return None
+    try:
+        datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(400, f"{field_name} must be a valid ISO date")
+    return str(value)
+
+def is_coupon_expired(coupon: Coupon) -> bool:
+    if not coupon.expiresAt:
+        return False
+    try:
+        expires_at = datetime.fromisoformat(str(coupon.expiresAt).replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    if expires_at.tzinfo is not None:
+        expires_at = expires_at.replace(tzinfo=None)
+    return expires_at < datetime.utcnow()
+
+def coupon_discount_for_amount(coupon: Coupon, amount: Optional[float]) -> float:
+    if amount is None:
+        return 0.0
+    base = max(0.0, float(amount or 0))
+    if coupon.discountType == "percentage":
+        discount = base * float(coupon.discountValue or 0) / 100
+    else:
+        discount = float(coupon.discountValue or 0)
+    return round(min(base, max(0.0, discount)), 2)
+
+def get_valid_coupon_for_amount(db: Session, code: Optional[str], amount: Optional[float] = None) -> Optional[Coupon]:
+    normalized = normalize_coupon_code(code or "")
+    if not normalized:
+        return None
+    coupon = db.query(Coupon).filter(Coupon.code == normalized).first()
+    if not coupon:
+        raise HTTPException(404, "Coupon not found")
+    if not coupon.isActive:
+        raise HTTPException(400, "Coupon is not active")
+    if is_coupon_expired(coupon):
+        raise HTTPException(400, "Coupon has expired")
+    if amount is not None and coupon.minOrderAmount is not None and float(amount) < float(coupon.minOrderAmount):
+        raise HTTPException(400, f"Minimum order amount is ₹{format(float(coupon.minOrderAmount), '.2f')}")
+    return coupon
 
 def add_total_purchased(
     db: Session,
@@ -993,6 +1054,18 @@ class ProductIn(BaseModel):
     featured: Optional[bool] = False
     quantity_options: Optional[List[int]] = [100, 250, 500, 1000]
 
+class CouponIn(BaseModel):
+    code: str
+    discountType: str
+    discountValue: float
+    minOrderAmount: Optional[float] = None
+    isActive: Optional[bool] = True
+    expiresAt: Optional[str] = None
+
+class CouponApplyIn(BaseModel):
+    code: str
+    orderAmount: Optional[float] = None
+
 class RestockIn(BaseModel):
     amount: float
     reason: Optional[str] = "Manual restock"
@@ -1011,6 +1084,7 @@ class OrderIn(BaseModel):
     delivery_lat: Optional[float] = None
     delivery_lng: Optional[float] = None
     delivery_place_id: Optional[str] = ""
+    coupon_code: Optional[str] = None
 
 class CreatePaymentOrderIn(OrderIn):
     pass
@@ -1533,6 +1607,52 @@ def save_fcm_token(
 
     return {"ok": True}
 
+# Coupons
+@app.post("/api/coupons", dependencies=[Depends(require_admin)])
+def create_coupon(body: CouponIn, db: Session = Depends(get_db)):
+    code = normalize_coupon_code(body.code)
+    if not code:
+        raise HTTPException(400, "Coupon code is required")
+    if body.discountType not in ("percentage", "flat"):
+        raise HTTPException(400, "discountType must be percentage or flat")
+    if body.discountValue <= 0:
+        raise HTTPException(400, "discountValue must be greater than 0")
+    if body.discountType == "percentage" and body.discountValue > 100:
+        raise HTTPException(400, "Percentage discount cannot exceed 100")
+    if body.minOrderAmount is not None and body.minOrderAmount < 0:
+        raise HTTPException(400, "minOrderAmount cannot be negative")
+
+    coupon = Coupon(
+        id=str(uuid.uuid4()),
+        code=code,
+        discountType=body.discountType,
+        discountValue=float(body.discountValue),
+        minOrderAmount=float(body.minOrderAmount) if body.minOrderAmount is not None else None,
+        isActive=1 if body.isActive else 0,
+        expiresAt=parse_optional_iso_datetime(body.expiresAt, "expiresAt"),
+        created_at=now_iso(),
+    )
+    db.add(coupon)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(400, "Coupon code already exists")
+    db.refresh(coupon)
+    return model_to_dict(coupon)
+
+@app.post("/api/coupons/apply")
+def apply_coupon(body: CouponApplyIn, db: Session = Depends(get_db)):
+    code = normalize_coupon_code(body.code)
+    if not code:
+        raise HTTPException(400, "Coupon code is required")
+
+    coupon = get_valid_coupon_for_amount(db, code, body.orderAmount)
+
+    data = model_to_dict(coupon) or {}
+    data["discountAmount"] = coupon_discount_for_amount(coupon, body.orderAmount)
+    return data
+
 # â”€â”€ Products â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @app.get("/api/products")
 def list_products(category: Optional[str] = None, search: Optional[str] = None, featured: Optional[bool] = None, db: Session = Depends(get_db)):
@@ -1849,6 +1969,7 @@ def create_order_record(
             "price": p["price"],
             "unit": p["unit"],
             "quantity": ci.quantity,
+            "original_line_total": line_total,
             "line_total": line_total,
             "selected_weight": ci.selected_weight,
             "stock_deducted_kg": stock_needed,
@@ -1860,6 +1981,24 @@ def create_order_record(
             product.available = 0
         product.total_purchased = (product.total_purchased or 0) + ci.quantity
         stock_changes.append((product, -stock_needed))
+
+    original_subtotal = round(subtotal, 2)
+    coupon = get_valid_coupon_for_amount(db, body.coupon_code, original_subtotal)
+    if coupon:
+        subtotal = 0
+        for item in items_detail:
+            original_line_total = float(item["original_line_total"])
+            quantity = int(item["quantity"] or 1)
+            if coupon.discountType == "percentage":
+                line_total = original_line_total - (original_line_total * float(coupon.discountValue) / 100)
+            else:
+                selected_unit_price = original_line_total / max(1, quantity)
+                line_total = max(0.0, selected_unit_price - float(coupon.discountValue)) * quantity
+            item["line_total"] = round(max(0.0, line_total), 2)
+            item["coupon_code"] = coupon.code
+            item["coupon_discount_type"] = coupon.discountType
+            item["coupon_discount_value"] = coupon.discountValue
+            subtotal += item["line_total"]
 
     delivery = 0 if subtotal >= 300 else 40
     timeline = [{"status": "pending", "at": now_iso()}]

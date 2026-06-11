@@ -387,11 +387,24 @@ function CartProvider({children}) {
   });
 
   const [products, setProducts] = useState([]);
+  const [activeCoupon, setActiveCoupon] = useState(() => {
+    try {
+      const saved = localStorage.getItem("amarveggies_coupon");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
 
   // SAVE CART TO LOCAL STORAGE ON EVERY CHANGE
   useEffect(() => {
     localStorage.setItem("amarveggies_cart", JSON.stringify(cart));
   }, [cart]);
+
+  useEffect(() => {
+    if (activeCoupon) localStorage.setItem("amarveggies_coupon", JSON.stringify(activeCoupon));
+    else localStorage.removeItem("amarveggies_coupon");
+  }, [activeCoupon]);
 
   const add = (id, weight = 1000) => {
     const key = `${id}_${weight}`;
@@ -458,6 +471,25 @@ function CartProvider({children}) {
     localStorage.removeItem("amarveggies_cart");
   };
 
+  const applyCoupon = async (code, orderAmount = subtotalBeforeCoupon) => {
+    const data = await apiFetch("/coupons/apply", {
+      method: "POST",
+      body: JSON.stringify({code, orderAmount})
+    });
+    const coupon = {
+      code: data.code,
+      discountType: data.discountType,
+      discountValue: Number(data.discountValue || 0),
+      minOrderAmount: data.minOrderAmount ?? null,
+      expiresAt: data.expiresAt || null,
+      discountAmount: Number(data.discountAmount || 0)
+    };
+    setActiveCoupon(coupon);
+    return coupon;
+  };
+
+  const clearCoupon = () => setActiveCoupon(null);
+
   const count = Object.values(cart).reduce((s, ci) => s + ci.quantity, 0);
 
   const items = Object.entries(cart).map(([key, ci]) => {
@@ -472,11 +504,14 @@ function CartProvider({children}) {
       cartKey: key,
       weight,
       quantity: ci.quantity,
-      lineTotal: getLineTotal(p, weight, ci.quantity)
+      originalLineTotal: getLineTotal(p, weight, ci.quantity),
+      lineTotal: getDiscountedLineTotal(p, weight, ci.quantity, activeCoupon)
     };
   }).filter(Boolean);
 
+  const subtotalBeforeCoupon = items.reduce((s, i) => s + i.originalLineTotal, 0);
   const subtotal = items.reduce((s, i) => s + i.lineTotal, 0);
+  const couponDiscount = Math.max(0, Number((subtotalBeforeCoupon - subtotal).toFixed(2)));
   const delivery = subtotal > 0 ? (subtotal >= 300 ? 0 : 40) : 0;
   const total = subtotal + delivery;
 
@@ -491,10 +526,16 @@ function CartProvider({children}) {
       count,
       items,
       subtotal,
+      subtotalBeforeCoupon,
+      couponDiscount,
       delivery,
       total,
       products,
-      setProducts
+      setProducts,
+      activeCoupon,
+      applyCoupon,
+      clearCoupon,
+      getDiscountedAmount
     }}>
       {children}
     </CartCtx.Provider>
@@ -649,6 +690,20 @@ function getLineTotal(product, selectedValue, quantity = 1) {
   return Number((Number(product.price || 0) * option.priceMultiplier * Number(quantity || 1)).toFixed(2));
 }
 
+function getDiscountedAmount(amount, coupon) {
+  const original = Number(amount || 0);
+  if (!coupon) return original;
+  const value = Number(coupon.discountValue || 0);
+  const discounted = coupon.discountType === "percentage"
+    ? original - (original * value / 100)
+    : original - value;
+  return Number(Math.max(0, discounted).toFixed(2));
+}
+
+function getDiscountedLineTotal(product, selectedValue, quantity = 1, coupon = null) {
+  return Number((getDiscountedAmount(getLineTotal(product, selectedValue, 1), coupon) * Number(quantity || 1)).toFixed(2));
+}
+
 function formatMoney(amount) {
   const rounded = Number(amount || 0);
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
@@ -734,7 +789,7 @@ function productImageSrc(product) {
 
 function ProductCard({product, onDetail}) {
   const {user} = useContext(AuthCtx);
-  const {cart, add, set} = useContext(CartCtx);
+  const {cart, add, set, activeCoupon} = useContext(CartCtx);
   const toast = useContext(ToastCtx);
   const [weight, setWeight] = useState(getDefaultSelection(product));
   const cartKey = `${product.id}_${weight}`;
@@ -743,6 +798,9 @@ function ProductCard({product, onDetail}) {
   const selectionOptions = getSelectionOptions(product);
   const showQuantityDropdown = selectionOptions.length > 1;
   const displayPrice = formatProductPrice(product, displayWeight);
+  const originalUnitPrice = getLineTotal(product, displayWeight, 1);
+  const discountedUnitPrice = getDiscountedAmount(originalUnitPrice, activeCoupon);
+  const hasCouponPrice = Boolean(activeCoupon) && discountedUnitPrice < originalUnitPrice;
   const imageSrc = productImageSrc(product);
   const [favorite, setFavorite] = useState(() => getLocalFavoriteIds().includes(product.id));
 
@@ -778,7 +836,13 @@ function ProductCard({product, onDetail}) {
         <div className="card-cat">{product.category}</div>
         <div className="card-name">{product.name}</div>
         <div className="card-price">
-          {displayPrice}
+          {hasCouponPrice ? (
+            <span className="price-with-coupon">
+              <span className="price-original">₹{formatMoney(originalUnitPrice)}</span>
+              <span className="price-discounted">₹{formatMoney(discountedUnitPrice)}</span>
+              <span className="card-unit">({getSelectionLabel(product, displayWeight)})</span>
+            </span>
+          ) : displayPrice}
         </div>
         {product.description && (
           <div
@@ -814,6 +878,59 @@ function ProductCard({product, onDetail}) {
             : <QtyControl qty={qty} onInc={() => add(product.id, weight)} onDec={() => set(cartKey, qty-1)} />}
         </div>
       )}
+    </div>
+  );
+}
+
+function CouponBox() {
+  const {activeCoupon, applyCoupon, clearCoupon, subtotalBeforeCoupon, couponDiscount} = useContext(CartCtx);
+  const toast = useContext(ToastCtx);
+  const [code, setCode] = useState(activeCoupon?.code || "");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setCode(activeCoupon?.code || "");
+  }, [activeCoupon]);
+
+  const submit = async () => {
+    if (!code.trim()) {
+      toast("Enter a coupon code", "error");
+      return;
+    }
+    setLoading(true);
+    try {
+      const coupon = await applyCoupon(code, subtotalBeforeCoupon);
+      toast(`Coupon ${coupon.code} applied`);
+    } catch (e) {
+      toast(e.message || "Coupon could not be applied", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (activeCoupon) {
+    return (
+      <div className="coupon-applied">
+        <div>
+          <div className="coupon-code">{activeCoupon.code}</div>
+          <div className="text-xs text-muted">Discount ₹{formatMoney(couponDiscount)}</div>
+        </div>
+        <button className="coupon-remove" onClick={clearCoupon} title="Remove coupon">×</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="coupon-box">
+      <input
+        value={code}
+        onChange={e => setCode(e.target.value.toUpperCase())}
+        onKeyDown={e => e.key === "Enter" && submit()}
+        placeholder="Coupon code"
+      />
+      <button className="btn btn-ghost" onClick={submit} disabled={loading}>
+        {loading ? "Applying..." : "Apply"}
+      </button>
     </div>
   );
 }
@@ -1166,7 +1283,7 @@ function ProductPage() {
    CART PAGE
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 function CartPage() {
-  const {items, subtotal, delivery, total, set, remove, count} = useContext(CartCtx);
+  const {items, subtotal, subtotalBeforeCoupon, couponDiscount, delivery, total, set, remove, count, activeCoupon} = useContext(CartCtx);
   const {user} = useContext(AuthCtx);
   const {nav} = useContext(RouterCtx);
   if (count === 0) return (
@@ -1197,6 +1314,7 @@ function CartPage() {
                 <div className="mt-1"><QtyControl qty={item.quantity} onInc={() => set(item.cartKey, item.quantity+1)} onDec={() => { if(item.quantity===1) remove(item.cartKey); else set(item.cartKey, item.quantity-1); }} /></div>
               </div>
               <div style={{textAlign:"right"}}>
+                {activeCoupon && item.originalLineTotal > item.lineTotal && <div className="price-original">₹{formatMoney(item.originalLineTotal)}</div>}
                 <div className="cart-item-price">â‚¹{formatMoney(item.lineTotal)}</div>
               </div>
             </div>
@@ -1205,7 +1323,9 @@ function CartPage() {
 
         <div className="cart-summary-box">
           <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,marginBottom:"1.25rem"}}>Order Summary</h3>
-          <div className="flex justify-between mb-2"><span className="text-muted">Subtotal</span><span className="fw-700">â‚¹{formatMoney(subtotal)}</span></div>
+          <CouponBox />
+          <div className="flex justify-between mb-2"><span className="text-muted">Subtotal</span><span className="fw-700">â‚¹{formatMoney(activeCoupon ? subtotalBeforeCoupon : subtotal)}</span></div>
+          {activeCoupon && <div className="flex justify-between mb-2"><span className="text-muted">Coupon</span><span className="fw-700 text-leaf">-₹{formatMoney(couponDiscount)}</span></div>}
           <div className="flex justify-between mb-2">
             <span className="text-muted">Delivery</span>
             <span className="fw-700" style={{color:delivery===0?"var(--leaf)":"inherit"}}>{delivery===0?"FREE ðŸŽ‰":`â‚¹${delivery}`}</span>
@@ -1372,7 +1492,7 @@ function LocationPicker({value, onChange}) {
    CHECKOUT PAGE
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 function CheckoutPage() {
-  const {items, subtotal, delivery, total, clear, cart} = useContext(CartCtx);
+  const {items, subtotal, subtotalBeforeCoupon, couponDiscount, delivery, total, clear, cart, activeCoupon} = useContext(CartCtx);
   const {user} = useContext(AuthCtx);
   const {nav} = useContext(RouterCtx);
   const toast = useContext(ToastCtx);
@@ -1430,7 +1550,8 @@ function CheckoutPage() {
       notes: form.notes,
       delivery_lat: form.delivery_lat,
       delivery_lng: form.delivery_lng,
-      delivery_place_id: form.delivery_place_id
+      delivery_place_id: form.delivery_place_id,
+      coupon_code: activeCoupon?.code || null
     };
   };
 
@@ -1594,11 +1715,16 @@ function CheckoutPage() {
           {items.map(i => (
             <div key={i.id} className="flex justify-between mb-1" style={{fontSize:".83rem",paddingBottom:".5rem",borderBottom:"1px solid var(--border)"}}>
               <span>{i.emoji} {i.name} Ã— {i.quantity} {getSelectionLabel(i, i.weight, true)}</span>
-              <span className="fw-700">â‚¹{formatMoney(i.lineTotal)}</span>
+              <span className="fw-700">
+                {activeCoupon && i.originalLineTotal > i.lineTotal && <span className="price-original" style={{marginRight:6}}>₹{formatMoney(i.originalLineTotal)}</span>}
+                â‚¹{formatMoney(i.lineTotal)}
+              </span>
             </div>
           ))}
           <hr className="divider"/>
-          <div className="flex justify-between mb-1 text-sm"><span className="text-muted">Subtotal</span><span>â‚¹{formatMoney(subtotal)}</span></div>
+          <CouponBox />
+          <div className="flex justify-between mb-1 text-sm"><span className="text-muted">Subtotal</span><span>â‚¹{formatMoney(activeCoupon ? subtotalBeforeCoupon : subtotal)}</span></div>
+          {activeCoupon && <div className="flex justify-between mb-1 text-sm"><span className="text-muted">Coupon</span><span className="text-leaf">-₹{formatMoney(couponDiscount)}</span></div>}
           <div className="flex justify-between mb-2 text-sm"><span className="text-muted">Delivery</span><span style={{color:delivery===0?"var(--leaf)":"inherit"}}>{delivery===0?"FREE":"â‚¹"+delivery}</span></div>
           <div className="flex justify-between" style={{fontWeight:700,fontSize:"1.1rem",marginBottom:"1.25rem"}}>
             <span>Total</span><span style={{color:"var(--leaf)",fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem"}}>â‚¹{formatMoney(total)}</span>
@@ -2617,6 +2743,96 @@ function DeliveryPartnerPage() {
   );
 }
 
+function CouponAdminForm() {
+  const toast = useContext(ToastCtx);
+  const [form, setForm] = useState({
+    code: "",
+    discountType: "percentage",
+    discountValue: "",
+    minOrderAmount: "",
+    expiresAt: "",
+    isActive: true
+  });
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const setField = key => value => setForm(prev => ({...prev, [key]: value}));
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErr("");
+    if (!form.code.trim() || !form.discountValue) {
+      setErr("Code and discount value are required");
+      return;
+    }
+    setLoading(true);
+    try {
+      await apiFetch("/coupons", {
+        method: "POST",
+        body: JSON.stringify({
+          code: form.code,
+          discountType: form.discountType,
+          discountValue: Number(form.discountValue),
+          minOrderAmount: form.minOrderAmount === "" ? null : Number(form.minOrderAmount),
+          expiresAt: form.expiresAt ? new Date(`${form.expiresAt}T23:59:59`).toISOString() : null,
+          isActive: form.isActive
+        })
+      });
+      toast("Coupon created");
+      setForm({code:"", discountType:"percentage", discountValue:"", minOrderAmount:"", expiresAt:"", isActive:true});
+    } catch (e) {
+      setErr(e.message || "Could not create coupon");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form className="admin-form-panel" onSubmit={submit}>
+      <div>
+        <h1 className="page-title">Coupons</h1>
+        <p className="text-muted text-sm">Create discounts customers can apply in cart or checkout.</p>
+      </div>
+      {err && <div className="form-err">{err}</div>}
+      <div className="field-row">
+        <div className="field">
+          <label>Code *</label>
+          <input value={form.code} onChange={e => setField("code")(e.target.value.toUpperCase())} placeholder="FRESH10" />
+        </div>
+        <div className="field">
+          <label>Discount Type</label>
+          <select value={form.discountType} onChange={e => setField("discountType")(e.target.value)}>
+            <option value="percentage">Percentage</option>
+            <option value="flat">Flat</option>
+          </select>
+        </div>
+      </div>
+      <div className="field-row">
+        <div className="field">
+          <label>Discount Value *</label>
+          <input type="number" min="0" step="0.01" value={form.discountValue} onChange={e => setField("discountValue")(e.target.value)} placeholder={form.discountType === "percentage" ? "10" : "50"} />
+        </div>
+        <div className="field">
+          <label>Minimum Order Amount</label>
+          <input type="number" min="0" step="0.01" value={form.minOrderAmount} onChange={e => setField("minOrderAmount")(e.target.value)} placeholder="300" />
+        </div>
+      </div>
+      <div className="field-row">
+        <div className="field">
+          <label>Expiry Date</label>
+          <input type="date" value={form.expiresAt} onChange={e => setField("expiresAt")(e.target.value)} />
+        </div>
+        <label className="toggle-row">
+          <input type="checkbox" checked={form.isActive} onChange={e => setField("isActive")(e.target.checked)} />
+          <span>Active coupon</span>
+        </label>
+      </div>
+      <button className="btn btn-primary" type="submit" disabled={loading}>
+        {loading ? "Creating..." : "Create Coupon"}
+      </button>
+    </form>
+  );
+}
+
 function AdminPage() {
   const {user} = useContext(AuthCtx);
   const {nav} = useContext(RouterCtx);
@@ -2774,7 +2990,7 @@ function AdminPage() {
     }
   };
 
-  const navItems = [["dashboard","ðŸ“Š","Dashboard"],["products","ðŸ¥¦","Products"],["orders","ðŸ“¦","Orders"]];
+  const navItems = [["dashboard","ðŸ“Š","Dashboard"],["products","ðŸ¥¦","Products"],["orders","ðŸ“¦","Orders"],["coupons","%","Coupons"]];
   const ORDER_STATUSES = ["pending","confirmed","out_for_delivery","delivered","cancelled"];
   const DELIVERY_PARTNERS = ["", "Amar", "Nikhil", "Dhirendra"];
 
@@ -3001,6 +3217,9 @@ function AdminPage() {
             )}
           </>
         )}
+
+        {/* COUPONS */}
+        {tab === "coupons" && <CouponAdminForm />}
 
         {/* ORDERS */}
         {tab === "orders" && (
