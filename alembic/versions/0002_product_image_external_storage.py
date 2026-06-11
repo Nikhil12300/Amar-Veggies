@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import inspect
 
-revision = "0002_product_image_external_storage"
+revision = "0002_product_images"
 down_revision = "0001_baseline_schema"
 branch_labels = None
 depends_on = None
