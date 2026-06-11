@@ -2,7 +2,7 @@ from logging.config import fileConfig
 import os
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
 os.environ["SKIP_EXTERNAL_SERVICES"] = "1"
 
@@ -41,10 +41,13 @@ def run_migrations_online():
     )
 
     with connectable.connect() as connection:
+        connection.execute(text("ALTER TABLE IF EXISTS alembic_version ALTER COLUMN version_num TYPE VARCHAR(255)"))
+        connection.commit()
+
         context.configure(connection=connection, target_metadata=target_metadata)
 
-        with context.begin_transaction():
-            context.run_migrations()
+    with context.begin_transaction():
+        context.run_migrations()
 
 
 if context.is_offline_mode():
