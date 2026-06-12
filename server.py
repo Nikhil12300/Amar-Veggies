@@ -1783,6 +1783,71 @@ def create_coupon(body: CouponIn, db: Session = Depends(get_db)):
     db.refresh(coupon)
     return model_to_dict(coupon)
 
+@app.get("/api/coupons", dependencies=[Depends(require_admin)])
+def list_coupons(db: Session = Depends(get_db)):
+    rows = db.query(Coupon).order_by(Coupon.created_at.desc()).all()
+    return models_to_list(rows)
+
+@app.put("/api/coupons/{coupon_id}", dependencies=[Depends(require_admin)])
+def update_coupon(coupon_id: str, body: CouponIn, db: Session = Depends(get_db)):
+    coupon = db.query(Coupon).filter(Coupon.id == coupon_id).first()
+    if not coupon:
+        raise HTTPException(404, "Coupon not found")
+
+    code = normalize_coupon_code(body.code)
+    if not code:
+        raise HTTPException(400, "Coupon code is required")
+    if body.discountType not in ("percentage", "flat"):
+        raise HTTPException(400, "discountType must be percentage or flat")
+    if body.discountValue <= 0:
+        raise HTTPException(400, "discountValue must be greater than 0")
+    if body.discountType == "percentage" and body.discountValue > 100:
+        raise HTTPException(400, "Percentage discount cannot exceed 100")
+    if body.minOrderAmount is not None and body.minOrderAmount < 0:
+        raise HTTPException(400, "minOrderAmount cannot be negative")
+
+    duplicate = db.query(Coupon).filter(Coupon.code == code, Coupon.id != coupon_id).first()
+    if duplicate:
+        raise HTTPException(400, "Coupon code already exists")
+
+    coupon.code = code
+    coupon.discountType = body.discountType
+    coupon.discountValue = float(body.discountValue)
+    coupon.minOrderAmount = float(body.minOrderAmount) if body.minOrderAmount is not None else None
+    coupon.isActive = 1 if body.isActive else 0
+    coupon.expiresAt = parse_optional_iso_datetime(body.expiresAt, "expiresAt")
+
+    db.commit()
+    db.refresh(coupon)
+    return model_to_dict(coupon)
+
+@app.delete("/api/coupons/{coupon_id}", dependencies=[Depends(require_admin)])
+def delete_coupon(coupon_id: str, db: Session = Depends(get_db)):
+    coupon = db.query(Coupon).filter(Coupon.id == coupon_id).first()
+    if not coupon:
+        raise HTTPException(404, "Coupon not found")
+    db.delete(coupon)
+    db.commit()
+    return {"ok": True}
+
+@app.get("/api/coupons/code/{code}")
+def get_coupon_by_code(code: str, db: Session = Depends(get_db)):
+    normalized = normalize_coupon_code(code)
+    if not normalized:
+        raise HTTPException(400, "Coupon code is required")
+
+    coupon = db.query(Coupon).filter(Coupon.code == normalized).first()
+    if not coupon:
+        raise HTTPException(404, "Coupon not found")
+    if not coupon.isActive:
+        raise HTTPException(400, "Coupon is not active")
+    if is_coupon_expired(coupon):
+        raise HTTPException(400, "Coupon has expired")
+
+    data = model_to_dict(coupon) or {}
+    data["discountAmount"] = 0
+    return data
+
 @app.post("/api/coupons/apply")
 def apply_coupon(body: CouponApplyIn, db: Session = Depends(get_db)):
     code = normalize_coupon_code(body.code)
@@ -2727,6 +2792,4 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)
-
-
 

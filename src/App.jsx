@@ -1054,6 +1054,47 @@ function Navbar() {
 /* ═══════════════════════════════════════════════════════════
    HOME PAGE
 ═══════════════════════════════════════════════════════════ */
+function HomeCouponBox() {
+  const {
+    activeCoupon,
+    couponDiscount,
+    subtotalBeforeCoupon,
+    subtotal
+  } = useContext(CartCtx);
+
+  return (
+    <div className="container" style={{paddingTop: "2rem"}}>
+      <div
+        style={{
+          background: "var(--white)",
+          border: "1.5px solid var(--border)",
+          borderRadius: "var(--r)",
+          padding: "1.25rem",
+          display: "grid",
+          gap: ".75rem"
+        }}
+      >
+        <div>
+          <h3 style={{margin: 0, fontSize: "1.15rem"}}>Have a coupon or referral code?</h3>
+          <p className="text-sm text-muted" style={{margin: ".25rem 0 0"}}>
+            Apply it here and your discount will be saved for checkout.
+          </p>
+        </div>
+
+        <CouponBox />
+
+        {activeCoupon && (
+          <div className="text-sm" style={{color: "var(--leaf)", fontWeight: 700}}>
+            Code {activeCoupon.code} applied
+            {couponDiscount > 0 && <> — You save ₹{formatMoney(couponDiscount)}</>}
+            {subtotalBeforeCoupon > 0 && <> — Cart total ₹{formatMoney(subtotal)}</>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function HomePage() {
   const {nav} = useContext(RouterCtx);
   const {user} = useContext(AuthCtx);
@@ -1150,6 +1191,8 @@ function HomePage() {
         </div>
       </div>
 
+      <HomeCouponBox />
+
       {/* Categories strip */}
       {categories.length > 0 && (
         <div style={{background:"var(--white)",borderBottom:"1px solid var(--border)",padding:"1.25rem 2rem"}}>
@@ -1209,13 +1252,7 @@ function HomePage() {
 function ShopPage() {
   const {user} = useContext(AuthCtx);
   const {nav, params} = useContext(RouterCtx);
-  const {
-    setProducts,
-    activeCoupon,
-    couponDiscount,
-    subtotalBeforeCoupon,
-    subtotal
-  } = useContext(CartCtx);
+  const {setProducts} = useContext(CartCtx);
   const [products, setLocal] = useState([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState(params.category || "All");
@@ -1251,34 +1288,6 @@ function ShopPage() {
         <div className="search-wrap">
           <span className="search-icon">🔍</span>
           <input className="search-input" placeholder="Search fruits, vegetables…" value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-        <div
-          className="coupon-shop-card"
-          style={{
-            marginTop: "1rem",
-            background: "var(--white)",
-            border: "1.5px solid var(--border)",
-            borderRadius: "var(--r)",
-            padding: "1rem",
-            display: "grid",
-            gap: ".75rem"
-          }}
-        >
-          <div>
-            <h3 style={{margin: 0, fontSize: "1.05rem"}}>Have a coupon or referral code?</h3>
-            <p className="text-sm text-muted" style={{margin: ".25rem 0 0"}}>
-              Apply it now and discounted prices will show while you shop.
-            </p>
-          </div>
-
-          <CouponBox />
-
-          {activeCoupon && (
-            <div className="text-sm" style={{color: "var(--leaf)", fontWeight: 700}}>
-              Code {activeCoupon.code} applied. You save ₹{formatMoney(couponDiscount)}
-              {subtotalBeforeCoupon > 0 && <> — Cart total ₹{formatMoney(subtotal)}</>}
-            </div>
-          )}
         </div>
       </div>
       <div className="cat-strip mb-3">
@@ -2836,91 +2845,246 @@ function DeliveryPartnerPage() {
 
 function CouponAdminForm() {
   const toast = useContext(ToastCtx);
-  const [form, setForm] = useState({
+  const emptyForm = {
     code: "",
     discountType: "percentage",
     discountValue: "",
     minOrderAmount: "",
     expiresAt: "",
     isActive: true
-  });
+  };
+
+  const [form, setForm] = useState(emptyForm);
+  const [coupons, setCoupons] = useState([]);
+  const [editingCoupon, setEditingCoupon] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [loadingList, setLoadingList] = useState(false);
   const [err, setErr] = useState("");
+
   const setField = key => value => setForm(prev => ({...prev, [key]: value}));
+
+  const loadCoupons = () => {
+    setLoadingList(true);
+    apiFetch("/coupons")
+      .then(data => setCoupons(Array.isArray(data) ? data : []))
+      .catch(e => toast(e.message || "Could not load coupons", "error"))
+      .finally(() => setLoadingList(false));
+  };
+
+  useEffect(() => {
+    loadCoupons();
+  }, []);
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setEditingCoupon(null);
+    setErr("");
+  };
+
+  const editCoupon = (coupon) => {
+    setEditingCoupon(coupon);
+    setForm({
+      code: coupon.code || "",
+      discountType: coupon.discountType || "percentage",
+      discountValue: coupon.discountValue ?? "",
+      minOrderAmount: coupon.minOrderAmount ?? "",
+      expiresAt: coupon.expiresAt ? String(coupon.expiresAt).slice(0, 10) : "",
+      isActive: Boolean(coupon.isActive)
+    });
+    window.scrollTo({top: 0, behavior: "smooth"});
+  };
 
   const submit = async (e) => {
     e.preventDefault();
     setErr("");
+
     if (!form.code.trim() || !form.discountValue) {
       setErr("Code and discount value are required");
       return;
     }
+
     setLoading(true);
+
+    const payload = {
+      code: form.code.trim().toUpperCase(),
+      discountType: form.discountType,
+      discountValue: Number(form.discountValue),
+      minOrderAmount: form.minOrderAmount === "" ? null : Number(form.minOrderAmount),
+      expiresAt: form.expiresAt ? new Date(`${form.expiresAt}T23:59:59`).toISOString() : null,
+      isActive: form.isActive
+    };
+
     try {
-      await apiFetch("/coupons", {
-        method: "POST",
-        body: JSON.stringify({
-          code: form.code,
-          discountType: form.discountType,
-          discountValue: Number(form.discountValue),
-          minOrderAmount: form.minOrderAmount === "" ? null : Number(form.minOrderAmount),
-          expiresAt: form.expiresAt ? new Date(`${form.expiresAt}T23:59:59`).toISOString() : null,
-          isActive: form.isActive
-        })
-      });
-      toast("Coupon created");
-      setForm({code:"", discountType:"percentage", discountValue:"", minOrderAmount:"", expiresAt:"", isActive:true});
+      if (editingCoupon) {
+        await apiFetch(`/coupons/${editingCoupon.id}`, {
+          method: "PUT",
+          body: JSON.stringify(payload)
+        });
+        toast("Coupon updated");
+      } else {
+        await apiFetch("/coupons", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        toast("Coupon created");
+      }
+
+      resetForm();
+      loadCoupons();
     } catch (e) {
-      setErr(e.message || "Could not create coupon");
+      setErr(e.message || "Could not save coupon");
     } finally {
       setLoading(false);
     }
   };
 
+  const deleteCoupon = async (coupon) => {
+    if (!confirm(`Delete coupon ${coupon.code}?`)) return;
+    try {
+      await apiFetch(`/coupons/${coupon.id}`, {method: "DELETE"});
+      toast("Coupon deleted");
+      if (editingCoupon?.id === coupon.id) resetForm();
+      loadCoupons();
+    } catch (e) {
+      toast(e.message || "Could not delete coupon", "error");
+    }
+  };
+
   return (
-    <form className="admin-form-panel" onSubmit={submit}>
-      <div>
-        <h1 className="page-title">Coupons</h1>
-        <p className="text-muted text-sm">Create discounts customers can apply in cart or checkout.</p>
+    <div>
+      <form className="admin-form-panel" onSubmit={submit}>
+        <div>
+          <h1 className="page-title">Coupons & Referrals</h1>
+          <p className="text-muted text-sm">
+            Create, edit, activate or disable coupon/referral codes.
+          </p>
+        </div>
+
+        {err && <div className="form-err">{err}</div>}
+
+        <div className="field-row">
+          <div className="field">
+            <label>Code *</label>
+            <input
+              value={form.code}
+              onChange={e => setField("code")(e.target.value.toUpperCase())}
+              placeholder="FRESH10"
+            />
+          </div>
+
+          <div className="field">
+            <label>Discount Type</label>
+            <select value={form.discountType} onChange={e => setField("discountType")(e.target.value)}>
+              <option value="percentage">Percentage</option>
+              <option value="flat">Flat</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="field-row">
+          <div className="field">
+            <label>Discount Value *</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.discountValue}
+              onChange={e => setField("discountValue")(e.target.value)}
+              placeholder={form.discountType === "percentage" ? "10" : "50"}
+            />
+          </div>
+
+          <div className="field">
+            <label>Minimum Order Amount</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.minOrderAmount}
+              onChange={e => setField("minOrderAmount")(e.target.value)}
+              placeholder="300"
+            />
+          </div>
+        </div>
+
+        <div className="field-row">
+          <div className="field">
+            <label>Expiry Date</label>
+            <input type="date" value={form.expiresAt} onChange={e => setField("expiresAt")(e.target.value)} />
+          </div>
+
+          <label className="toggle-row">
+            <input type="checkbox" checked={form.isActive} onChange={e => setField("isActive")(e.target.checked)} />
+            <span>Active coupon</span>
+          </label>
+        </div>
+
+        <div className="flex gap-1 flex-wrap">
+          <button className="btn btn-primary" type="submit" disabled={loading}>
+            {loading ? "Saving..." : editingCoupon ? "Update Coupon" : "Create Coupon"}
+          </button>
+
+          {editingCoupon && (
+            <button className="btn btn-ghost" type="button" onClick={resetForm}>
+              Cancel Edit
+            </button>
+          )}
+        </div>
+      </form>
+
+      <div className="table-wrap mt-3">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Discount</th>
+              <th>Min Order</th>
+              <th>Expiry</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {loadingList ? (
+              <tr>
+                <td colSpan="6">Loading coupons...</td>
+              </tr>
+            ) : coupons.length === 0 ? (
+              <tr>
+                <td colSpan="6">No coupons created yet.</td>
+              </tr>
+            ) : coupons.map(coupon => (
+              <tr key={coupon.id}>
+                <td><strong>{coupon.code}</strong></td>
+                <td>
+                  {coupon.discountType === "percentage"
+                    ? `${coupon.discountValue}%`
+                    : `₹${coupon.discountValue}`}
+                </td>
+                <td>{coupon.minOrderAmount ? `₹${coupon.minOrderAmount}` : "None"}</td>
+                <td>{coupon.expiresAt ? new Date(coupon.expiresAt).toLocaleDateString("en-IN") : "No expiry"}</td>
+                <td>
+                  <span className={`pill ${coupon.isActive ? "pill-green" : "pill-red"}`}>
+                    {coupon.isActive ? "Active" : "Inactive"}
+                  </span>
+                </td>
+                <td>
+                  <div className="flex gap-1 flex-wrap">
+                    <button className="btn btn-ghost" type="button" onClick={() => editCoupon(coupon)}>
+                      Edit
+                    </button>
+                    <button className="btn btn-danger" type="button" onClick={() => deleteCoupon(coupon)}>
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      {err && <div className="form-err">{err}</div>}
-      <div className="field-row">
-        <div className="field">
-          <label>Code *</label>
-          <input value={form.code} onChange={e => setField("code")(e.target.value.toUpperCase())} placeholder="FRESH10" />
-        </div>
-        <div className="field">
-          <label>Discount Type</label>
-          <select value={form.discountType} onChange={e => setField("discountType")(e.target.value)}>
-            <option value="percentage">Percentage</option>
-            <option value="flat">Flat</option>
-          </select>
-        </div>
-      </div>
-      <div className="field-row">
-        <div className="field">
-          <label>Discount Value *</label>
-          <input type="number" min="0" step="0.01" value={form.discountValue} onChange={e => setField("discountValue")(e.target.value)} placeholder={form.discountType === "percentage" ? "10" : "50"} />
-        </div>
-        <div className="field">
-          <label>Minimum Order Amount</label>
-          <input type="number" min="0" step="0.01" value={form.minOrderAmount} onChange={e => setField("minOrderAmount")(e.target.value)} placeholder="300" />
-        </div>
-      </div>
-      <div className="field-row">
-        <div className="field">
-          <label>Expiry Date</label>
-          <input type="date" value={form.expiresAt} onChange={e => setField("expiresAt")(e.target.value)} />
-        </div>
-        <label className="toggle-row">
-          <input type="checkbox" checked={form.isActive} onChange={e => setField("isActive")(e.target.checked)} />
-          <span>Active coupon</span>
-        </label>
-      </div>
-      <button className="btn btn-primary" type="submit" disabled={loading}>
-        {loading ? "Creating..." : "Create Coupon"}
-      </button>
-    </form>
+    </div>
   );
 }
 
@@ -3502,7 +3666,6 @@ function AppInner() {
 }
 
 createRoot(document.getElementById("root")).render(<App/>);
-
 
 
 
