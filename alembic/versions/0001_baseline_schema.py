@@ -96,6 +96,7 @@ def upgrade():
             sa.Column("available", sa.Integer(), nullable=False, server_default="1"),
             sa.Column("featured", sa.Integer(), nullable=False, server_default="0"),
             sa.Column("quantity_options", sa.Text(), nullable=False, server_default="[100,250,500,1000]"),
+            sa.Column("purchase_options", sa.Text(), nullable=False, server_default="[]"),
             sa.Column("image_data", sa.Text(), nullable=True),
             sa.Column("image_url", sa.Text(), nullable=True),
             sa.Column("image_key", sa.String(), nullable=True),
@@ -106,6 +107,7 @@ def upgrade():
         add_column_if_missing(bind, "products", sa.Column("image_url", sa.Text(), nullable=True))
         add_column_if_missing(bind, "products", sa.Column("image_key", sa.String(), nullable=True))
         add_column_if_missing(bind, "products", sa.Column("total_purchased", sa.Integer(), nullable=False, server_default="0"))
+        add_column_if_missing(bind, "products", sa.Column("purchase_options", sa.Text(), nullable=False, server_default="[]"))
         if bind.dialect.name == "postgresql":
             op.execute("ALTER TABLE products ALTER COLUMN stock TYPE DOUBLE PRECISION USING stock::double precision")
 

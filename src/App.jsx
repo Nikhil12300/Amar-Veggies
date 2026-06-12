@@ -596,6 +596,25 @@ function quantityOptionsFromText(text) {
     .filter(v => Number.isFinite(v) && v > 0);
 }
 
+function purchaseOptionsToText(options) {
+  if (!Array.isArray(options) || options.length === 0) return "";
+  return JSON.stringify(options, null, 2);
+}
+
+function purchaseOptionsFromText(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return [];
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed)) throw new Error("Purchase options must be a JSON array");
+  return parsed
+    .map(option => ({
+      value: Number(option?.value),
+      label: String(option?.label || "").trim(),
+      multiplier: Number(option?.multiplier)
+    }))
+    .filter(option => Number.isFinite(option.value) && option.value > 0 && option.label && Number.isFinite(option.multiplier) && option.multiplier > 0);
+}
+
 function defaultQuantityOptionsForUnit(unit) {
   if (isDozenUnit(unit)) return [12, 1];
   if (isBunchUnit(unit)) return [1];
@@ -628,6 +647,24 @@ function getUnitBaseLabel(unit) {
 
 function getSelectionOptions(product) {
   const unit = product?.unit || "kg";
+  const configuredOptions = Array.isArray(product?.purchase_options) && product.purchase_options.length
+    ? product.purchase_options
+        .map(option => {
+          const value = Number(option?.value);
+          const multiplier = Number(option?.multiplier);
+          const label = String(option?.label || "").trim();
+          if (!Number.isFinite(value) || value <= 0 || !Number.isFinite(multiplier) || multiplier <= 0 || !label) return null;
+          return {
+            value,
+            label,
+            shortLabel: label,
+            priceMultiplier: multiplier
+          };
+        })
+        .filter(Boolean)
+    : [];
+  if (configuredOptions.length) return configuredOptions;
+
   const rawOptions = Array.isArray(product?.quantity_options) && product.quantity_options.length
     ? product.quantity_options
     : defaultQuantityOptionsForUnit(unit);
@@ -2297,8 +2334,9 @@ function RegisterPage() {
 â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 function ProductFormModal({product, onClose, onSaved}) {
   const toast = useContext(ToastCtx);
-  const [form, setForm] = useState(product || {name:"",description:"",emoji:"ðŸŒ¿",category:"Vegetable",price:"",unit:"kg",stock:"",available:true,featured:false,quantity_options:[100,250,500,1000]});
+  const [form, setForm] = useState(product || {name:"",description:"",emoji:"ðŸŒ¿",category:"Vegetable",price:"",unit:"kg",stock:"",available:true,featured:false,quantity_options:[100,250,500,1000],purchase_options:[]});
   const [quantityOptionsText, setQuantityOptionsText] = useState(quantityOptionsToText(product?.quantity_options || defaultQuantityOptionsForUnit(product?.unit || "kg")));
+  const [purchaseOptionsText, setPurchaseOptionsText] = useState(purchaseOptionsToText(product?.purchase_options || []));
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [imgPreview, setImgPreview] = useState(productImageSrc(product) || null);
@@ -2324,7 +2362,15 @@ function ProductFormModal({product, onClose, onSaved}) {
     if (!form.name || !form.price || !form.unit || form.stock === "") { setErr("Name, price, unit and stock are required"); return; }
     setLoading(true); setErr("");
     try {
-      const body = {...form, price: parseFloat(form.price), stock: parseFloat(form.stock), quantity_options: quantityOptionsFromText(quantityOptionsText)};
+      const purchaseOptions = purchaseOptionsFromText(purchaseOptionsText);
+      const quantityOptions = quantityOptionsFromText(quantityOptionsText);
+      const body = {
+        ...form,
+        price: parseFloat(form.price),
+        stock: parseFloat(form.stock),
+        quantity_options: quantityOptions,
+        purchase_options: purchaseOptions
+      };
       let savedProduct;
       if (product) {
         savedProduct = await apiFetch(`/products/${product.id}`, {method:"PUT", body:JSON.stringify(body)});
@@ -2412,6 +2458,17 @@ function ProductFormModal({product, onClose, onSaved}) {
           />
           <div className="text-xs text-muted mt-1">
             Use comma-separated values. Kg uses grams (100, 250, 500, 1000). Dozen uses pieces (12 = 1 dozen, 1 = 1 piece). Bunch can be left as 1 to hide the dropdown.
+          </div>
+        </div>
+        <div className="field">
+          <label>Purchase options</label>
+          <textarea
+            placeholder='[{"value":12,"label":"1 dozen","multiplier":1},{"value":1,"label":"1 piece","multiplier":0.083333}]'
+            value={purchaseOptionsText}
+            onChange={e => setPurchaseOptionsText(e.target.value)}
+          />
+          <div className="text-xs text-muted mt-1">
+            Leave blank to derive from the dropdown values. Multiplier is the stock unit consumed per item.
           </div>
         </div>
         <div className="field"><label>Description</label><textarea placeholder="Short description of the productâ€¦" value={form.description} onChange={e=>f("description")(e.target.value)}/></div>

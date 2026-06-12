@@ -40,12 +40,13 @@ def run_migrations_online():
         poolclass=pool.NullPool,
     )
 
-    # Fix old Alembic version column length before migrations
+    # Fix old Alembic version column length before migrations on PostgreSQL.
     with connectable.begin() as connection:
-        connection.execute(text(
-            "ALTER TABLE IF EXISTS alembic_version "
-            "ALTER COLUMN version_num TYPE VARCHAR(255)"
-        ))
+        if connection.dialect.name == "postgresql":
+            connection.execute(text(
+                "ALTER TABLE IF EXISTS alembic_version "
+                "ALTER COLUMN version_num TYPE VARCHAR(255)"
+            ))
 
     # Run actual migrations on a fresh connection
     with connectable.connect() as connection:

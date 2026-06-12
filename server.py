@@ -271,6 +271,7 @@ class Product(Base):
     available: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     featured: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     quantity_options: Mapped[str] = mapped_column(Text, nullable=False, default="[100,250,500,1000]")
+    purchase_options: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
     image_data: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     image_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     image_key: Mapped[Optional[str]] = mapped_column(String, nullable=True)
@@ -468,6 +469,140 @@ def normalize_phone(phone: Optional[str]):
     if len(digits) == 12 and digits.startswith("91"):
         return digits[-10:]
     return digits or None
+
+def normalize_unit(unit: Optional[str]) -> str:
+    value = str(unit or "kg").strip().lower()
+    aliases = {
+        "dz": "dozen",
+        "pc": "piece",
+        "pcs": "piece",
+        "each": "piece",
+    }
+    return aliases.get(value, value)
+
+def stock_message_unit(unit: Optional[str], amount: float) -> str:
+    normalized_unit = normalize_unit(unit)
+    if normalized_unit == "kg":
+        return "kg"
+
+    singular_plural = {
+        "dozen": ("dozen", "dozens"),
+        "dozens": ("dozen", "dozens"),
+        "piece": ("piece", "pieces"),
+        "pieces": ("piece", "pieces"),
+        "bunch": ("bunch", "bunches"),
+        "bunches": ("bunch", "bunches"),
+    }
+    singular, plural = singular_plural.get(normalized_unit, (normalized_unit, normalized_unit))
+    return singular if float(amount or 0) == 1 else plural
+
+def default_purchase_options(unit: Optional[str], quantity_options: Optional[List[Any]] = None) -> List[Dict[str, Any]]:
+    normalized_unit = normalize_unit(unit)
+    raw_options = quantity_options if isinstance(quantity_options, list) and quantity_options else None
+    values = [
+        float(value)
+        for value in (raw_options or ([12, 1] if normalized_unit in {"dozen", "dozens"} else [1] if normalized_unit in {"piece", "pieces", "bunch", "bunches"} else [100, 250, 500, 1000]))
+        if isinstance(value, (int, float)) and float(value) > 0
+    ]
+
+    options: List[Dict[str, Any]] = []
+    for value in values:
+        display_value: Any = int(value) if value.is_integer() else value
+        if normalized_unit in {"dozen", "dozens"}:
+            label = "1 dozen" if value == 12 else "1 piece" if value == 1 else f"{display_value} pieces"
+            multiplier = value / 12
+        elif normalized_unit in {"piece", "pieces"}:
+            label = "1 piece" if value == 1 else f"{display_value} pieces"
+            multiplier = value
+        elif normalized_unit in {"bunch", "bunches"}:
+            label = "1 bunch" if value == 1 else f"{display_value} bunches"
+            multiplier = value
+        else:
+            label = "1 kg" if value == 1000 else f"{display_value}g"
+            multiplier = value / 1000
+        options.append({"value": display_value, "label": label, "multiplier": round(multiplier, 6)})
+    return options
+
+def normalize_purchase_options(
+    unit: Optional[str],
+    purchase_options: Optional[List[Any]] = None,
+    quantity_options: Optional[List[Any]] = None,
+) -> List[Dict[str, Any]]:
+    source_options = purchase_options if isinstance(purchase_options, list) and purchase_options else default_purchase_options(unit, quantity_options)
+    normalized: List[Dict[str, Any]] = []
+    for option in source_options:
+        if not isinstance(option, dict):
+            continue
+        value = float(option.get("value") or 0)
+        multiplier = float(option.get("multiplier") or 0)
+        label = str(option.get("label") or "").strip()
+        if value <= 0 or multiplier <= 0:
+            continue
+        normalized.append({
+            "value": int(value) if value.is_integer() else value,
+            "label": label or str(int(value) if value.is_integer() else value),
+            "multiplier": round(multiplier, 6),
+        })
+    return normalized
+
+def purchase_option_for_value(
+    unit: Optional[str],
+    selected_value: float,
+    purchase_options: Optional[List[Any]] = None,
+    quantity_options: Optional[List[Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    selected_value = float(selected_value or 0)
+    for option in normalize_purchase_options(unit, purchase_options, quantity_options):
+        if abs(float(option["value"]) - selected_value) < 0.0001:
+            return option
+    return None
+
+def calculate_order_item_amounts(
+    unit: Optional[str],
+    selected_value: float,
+    quantity: int,
+    price: float,
+    purchase_options: Optional[List[Any]] = None,
+    quantity_options: Optional[List[Any]] = None,
+) -> Dict[str, float]:
+    selected_value = float(selected_value or 0)
+    quantity = int(quantity or 0)
+    price = float(price or 0)
+    configured_option = purchase_option_for_value(unit, selected_value, purchase_options, quantity_options)
+
+    if configured_option:
+        stock_needed = float(configured_option["multiplier"]) * quantity
+        return {
+            "stock_needed": round(stock_needed, 3),
+            "line_total": round(price * stock_needed, 2),
+        }
+
+    normalized_unit = normalize_unit(unit)
+    if normalized_unit == "kg":
+        stock_needed = (selected_value / 1000) * quantity
+        line_total = price * stock_needed
+    elif normalized_unit in {"dozen", "dozens"}:
+        if selected_value == 12:
+            stock_needed = quantity
+            line_total = price * quantity
+        elif selected_value == 1:
+            stock_needed = quantity / 12
+            line_total = (price / 12) * quantity
+        else:
+            raise HTTPException(400, "Invalid dozen option")
+    elif normalized_unit in {"piece", "pieces"}:
+        stock_needed = quantity
+        line_total = price * quantity
+    elif normalized_unit in {"bunch", "bunches"}:
+        stock_needed = quantity
+        line_total = price * quantity
+    else:
+        raise HTTPException(400, f"Unsupported unit: {unit}")
+
+    return {
+        "stock_needed": round(stock_needed, 3),
+        "line_total": round(line_total, 2),
+    }
 
 def make_otp():
     return str(random.randint(100000, 999999))
@@ -703,13 +838,19 @@ def model_to_dict(obj: Any) -> Optional[Dict[str, Any]]:
         return None
 
     d: Dict[str, Any] = {c.name: getattr(obj, c.name) for c in table.columns}
-    for key in ("items", "timeline", "quantity_options"):
+    for key in ("items", "timeline", "quantity_options", "purchase_options"):
         value = d.get(key)
         if isinstance(value, str):
             try:
                 d[key] = json.loads(value)
             except Exception:
                 pass
+    if "purchase_options" in d:
+        d["purchase_options"] = normalize_purchase_options(
+            d.get("unit"),
+            d.get("purchase_options") if isinstance(d.get("purchase_options"), list) else None,
+            d.get("quantity_options") if isinstance(d.get("quantity_options"), list) else None,
+        )
 
     if "is_admin" in d:
         d["is_admin"] = bool(d["is_admin"])
@@ -1053,6 +1194,7 @@ class ProductIn(BaseModel):
     available: Optional[bool] = True
     featured: Optional[bool] = False
     quantity_options: Optional[List[int]] = [100, 250, 500, 1000]
+    purchase_options: Optional[List[Dict[str, Any]]] = None
 
 class CouponIn(BaseModel):
     code: str
@@ -1676,6 +1818,8 @@ def get_product(pid: str, db: Session = Depends(get_db)):
 @app.post("/api/products", dependencies=[Depends(require_admin)])
 def create_product(body: ProductIn, db: Session = Depends(get_db)):
     p = body.dict()
+    quantity_options = p.get("quantity_options") or [100, 250, 500, 1000]
+    purchase_options = normalize_purchase_options(p["unit"], p.get("purchase_options"), quantity_options)
     product = Product(
         id=str(uuid.uuid4()),
         name=p["name"],
@@ -1687,7 +1831,8 @@ def create_product(body: ProductIn, db: Session = Depends(get_db)):
         stock=float(p["stock"]),
         available=1 if p.get("available") else 0,
         featured=1 if p.get("featured") else 0,
-        quantity_options=json.dumps(p.get("quantity_options") or [100, 250, 500, 1000]),
+        quantity_options=json.dumps(quantity_options),
+        purchase_options=json.dumps(purchase_options),
         image_data=None,
         image_url=None,
         image_key=None,
@@ -1705,6 +1850,8 @@ def update_product(pid: str, body: ProductIn, db: Session = Depends(get_db)):
     if not product:
         raise HTTPException(404, "Product not found")
     p = body.dict()
+    quantity_options = p.get("quantity_options") or [100, 250, 500, 1000]
+    purchase_options = normalize_purchase_options(p["unit"], p.get("purchase_options"), quantity_options)
     product.name = p["name"]
     product.description = p.get("description", "")
     product.emoji = p.get("emoji", "ðŸŒ¿")
@@ -1714,7 +1861,8 @@ def update_product(pid: str, body: ProductIn, db: Session = Depends(get_db)):
     product.stock = float(p["stock"])
     product.available = 1 if p.get("available") else 0
     product.featured = 1 if p.get("featured") else 0
-    product.quantity_options = json.dumps(p.get("quantity_options") or [100, 250, 500, 1000])
+    product.quantity_options = json.dumps(quantity_options)
+    product.purchase_options = json.dumps(purchase_options)
     db.commit()
     db.refresh(product)
     return model_to_dict(product)
@@ -1947,20 +2095,34 @@ def create_order_record(
             raise HTTPException(400, f"{p['name']} is unavailable")
         if ci.quantity <= 0:
             raise HTTPException(400, f"Invalid quantity for {p['name']}")
-        if ci.selected_weight not in p.get("quantity_options", [100, 250, 500, 1000]):
-            raise HTTPException(400, f"Invalid weight option for {p['name']}")
+        purchase_option = purchase_option_for_value(
+            p["unit"],
+            ci.selected_weight,
+            p.get("purchase_options"),
+            p.get("quantity_options", [100, 250, 500, 1000]),
+        )
+        if not purchase_option:
+            raise HTTPException(400, f"Invalid purchase option for {p['name']}")
 
-        weight = ci.selected_weight or 1000
-        stock_needed = round((weight / 1000) * ci.quantity, 3)
+        selected_value = ci.selected_weight or 1000
+        amounts = calculate_order_item_amounts(
+            p["unit"],
+            selected_value,
+            ci.quantity,
+            p["price"],
+            p.get("purchase_options"),
+            p.get("quantity_options"),
+        )
+        stock_needed = amounts["stock_needed"]
         current_stock = float(product.stock or 0)
 
         if current_stock < stock_needed:
             raise HTTPException(
                 400,
-                f"Only {current_stock:g} kg stock available for {p['name']}"
+                f"Only {current_stock:g} {stock_message_unit(p['unit'], current_stock)} stock available for {p['name']}"
             )
 
-        line_total = round(p["price"] * stock_needed, 2)
+        line_total = amounts["line_total"]
         subtotal += line_total
         items_detail.append({
             "product_id": ci.product_id,
@@ -1972,6 +2134,8 @@ def create_order_record(
             "original_line_total": line_total,
             "line_total": line_total,
             "selected_weight": ci.selected_weight,
+            "purchase_label": purchase_option["label"],
+            "purchase_multiplier": purchase_option["multiplier"],
             "stock_deducted_kg": stock_needed,
         })
 
@@ -2101,7 +2265,14 @@ def repeat_last_order(user: Dict[str, Any] = Depends(get_current_user), db: Sess
             continue
         selected_weight = int(item.get("selected_weight") or 1000)
         quantity = int(item.get("quantity") or 1)
-        stock_needed = round((selected_weight / 1000) * quantity, 3)
+        stock_needed = calculate_order_item_amounts(
+            product_dict.get("unit"),
+            selected_weight,
+            quantity,
+            float(product_dict.get("price") or 0),
+            product_dict.get("purchase_options"),
+            product_dict.get("quantity_options"),
+        )["stock_needed"]
         if float(product.stock or 0) < stock_needed:
             continue
         available_items.append({
@@ -2262,7 +2433,12 @@ def update_order_status(oid: str, body: OrderStatusIn, db: Session = Depends(get
                 if restored_stock is None:
                     selected_weight = float(item.get("selected_weight") or 1000)
                     quantity = int(item.get("quantity") or 0)
-                    restored_stock = round((selected_weight / 1000) * quantity, 3)
+                    restored_stock = calculate_order_item_amounts(
+                        item.get("unit"),
+                        selected_weight,
+                        quantity,
+                        float(item.get("price") or 0),
+                    )["stock_needed"]
 
                 product.stock = round(float(product.stock or 0) + float(restored_stock), 3)
                 if float(product.stock or 0) > 0:
