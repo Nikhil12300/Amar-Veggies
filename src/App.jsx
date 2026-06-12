@@ -1209,7 +1209,13 @@ function HomePage() {
 function ShopPage() {
   const {user} = useContext(AuthCtx);
   const {nav, params} = useContext(RouterCtx);
-  const {setProducts} = useContext(CartCtx);
+  const {
+    setProducts,
+    activeCoupon,
+    couponDiscount,
+    subtotalBeforeCoupon,
+    subtotal
+  } = useContext(CartCtx);
   const [products, setLocal] = useState([]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState(params.category || "All");
@@ -1245,6 +1251,34 @@ function ShopPage() {
         <div className="search-wrap">
           <span className="search-icon">🔍</span>
           <input className="search-input" placeholder="Search fruits, vegetables…" value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <div
+          className="coupon-shop-card"
+          style={{
+            marginTop: "1rem",
+            background: "var(--white)",
+            border: "1.5px solid var(--border)",
+            borderRadius: "var(--r)",
+            padding: "1rem",
+            display: "grid",
+            gap: ".75rem"
+          }}
+        >
+          <div>
+            <h3 style={{margin: 0, fontSize: "1.05rem"}}>Have a coupon or referral code?</h3>
+            <p className="text-sm text-muted" style={{margin: ".25rem 0 0"}}>
+              Apply it now and discounted prices will show while you shop.
+            </p>
+          </div>
+
+          <CouponBox />
+
+          {activeCoupon && (
+            <div className="text-sm" style={{color: "var(--leaf)", fontWeight: 700}}>
+              Code {activeCoupon.code} applied. You save ₹{formatMoney(couponDiscount)}
+              {subtotalBeforeCoupon > 0 && <> — Cart total ₹{formatMoney(subtotal)}</>}
+            </div>
+          )}
         </div>
       </div>
       <div className="cat-strip mb-3">
@@ -3468,8 +3502,6 @@ function AppInner() {
 }
 
 createRoot(document.getElementById("root")).render(<App/>);
-
-
 
 
 
