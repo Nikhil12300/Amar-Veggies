@@ -919,7 +919,7 @@ function ProductCard({product, onDetail}) {
   );
 }
 
-function CouponBox() {
+function CouponBox({deferMinimumCheck = false}) {
   const {activeCoupon, applyCoupon, clearCoupon, subtotalBeforeCoupon, couponDiscount} = useContext(CartCtx);
   const toast = useContext(ToastCtx);
   const [code, setCode] = useState(activeCoupon?.code || "");
@@ -934,10 +934,18 @@ function CouponBox() {
       toast("Enter a coupon code", "error");
       return;
     }
+
     setLoading(true);
+
     try {
-      const coupon = await applyCoupon(code, subtotalBeforeCoupon);
-      toast(`Coupon ${coupon.code} applied`);
+      const amountToCheck = deferMinimumCheck ? null : subtotalBeforeCoupon;
+      const coupon = await applyCoupon(code, amountToCheck);
+
+      if (deferMinimumCheck) {
+        toast(`Code ${coupon.code} saved. Minimum order will be checked at checkout.`);
+      } else {
+        toast(`Coupon ${coupon.code} applied`);
+      }
     } catch (e) {
       toast(e.message || "Coupon could not be applied", "error");
     } finally {
@@ -950,7 +958,11 @@ function CouponBox() {
       <div className="coupon-applied">
         <div>
           <div className="coupon-code">{activeCoupon.code}</div>
-          <div className="text-xs text-muted">Discount ₹{formatMoney(couponDiscount)}</div>
+          <div className="text-xs text-muted">
+            {deferMinimumCheck && couponDiscount <= 0
+              ? "Saved for checkout"
+              : `Discount ₹${formatMoney(couponDiscount)}`}
+          </div>
         </div>
         <button className="coupon-remove" onClick={clearCoupon} title="Remove coupon">×</button>
       </div>
@@ -963,7 +975,7 @@ function CouponBox() {
         value={code}
         onChange={e => setCode(e.target.value.toUpperCase())}
         onKeyDown={e => e.key === "Enter" && submit()}
-        placeholder="Coupon code"
+        placeholder="Coupon or referral code"
       />
       <button className="btn btn-ghost" onClick={submit} disabled={loading}>
         {loading ? "Applying..." : "Apply"}
@@ -1081,7 +1093,7 @@ function HomeCouponBox() {
           </p>
         </div>
 
-        <CouponBox />
+        <CouponBox deferMinimumCheck />
 
         {activeCoupon && (
           <div className="text-sm" style={{color: "var(--leaf)", fontWeight: 700}}>
@@ -3666,6 +3678,4 @@ function AppInner() {
 }
 
 createRoot(document.getElementById("root")).render(<App/>);
-
-
 
