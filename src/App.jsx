@@ -11,12 +11,12 @@ import {
   isGoogleSignInConfigured,
 } from './config';
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    CONFIG
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
    API HELPERS
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 async function apiFetch(path, opts = {}) {
   const token = localStorage.getItem("hv_token");
   const headers = {"Content-Type": "application/json", ...(token ? {Authorization: `Bearer ${token}`} : {}), ...(opts.headers || {})};
@@ -56,7 +56,7 @@ async function requestNotificationPermission(toast) {
   const permission = await Notification.requestPermission();
 
   if (permission === "granted") {
-    toast("Notifications enabled âœ“");
+    toast("Notifications enabled ✓");
     return true;
   }
 
@@ -129,7 +129,7 @@ async function registerFcmToken(toast) {
       body: JSON.stringify({ token })
     });
 
-    toast("Push notifications enabled âœ“");
+    toast("Push notifications enabled ✓");
     return true;
   } catch (e) {
     console.error("FCM ERROR:", e);
@@ -245,17 +245,17 @@ function loadRazorpayScript() {
   });
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    CONTEXTS
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 const AuthCtx = createContext();
 const CartCtx = createContext();
 const ToastCtx = createContext();
 const RouterCtx = createContext();
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    TOAST
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 function ToastProvider({children}) {
   const [toasts, setToasts] = useState([]);
   const add = useCallback((msg, type = "success") => {
@@ -273,9 +273,9 @@ function ToastProvider({children}) {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    AUTH PROVIDER
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 function AuthProvider({children}) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -352,7 +352,7 @@ function AuthProvider({children}) {
 
   const logout = () => { localStorage.removeItem("hv_token"); setUser(null); };
 
-  if (loading) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",color:"var(--leaf)"}}>ðŸŒ¿ Loadingâ€¦</div>;
+  if (loading) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",color:"var(--leaf)"}}>🌿 Loading…</div>;
   return (
     <AuthCtx.Provider value={{
       user,
@@ -371,9 +371,9 @@ function AuthProvider({children}) {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    CART PROVIDER
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 function CartProvider({children}) {
 
   // LOAD CART FROM LOCAL STORAGE
@@ -542,9 +542,9 @@ function CartProvider({children}) {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    ROUTER
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════ */
 function RouterProvider({children}) {
   const [page, setPage] = useState("home");
   const [params, setParams] = useState({});
@@ -552,9 +552,9 @@ function RouterProvider({children}) {
   return <RouterCtx.Provider value={{page, params, nav}}>{children}</RouterCtx.Provider>;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    COMPONENTS
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 function normalizeOrderStatus(status) {
   return status === "packed" ? "confirmed" : status;
 }
@@ -576,7 +576,7 @@ function Toggle({on, onChange}) {
 function QtyControl({qty, onInc, onDec}) {
   return (
     <div className="qty-row">
-      <button className="qty-btn" style={{background:"var(--rust)"}} onClick={onDec}>âˆ’</button>
+      <button className="qty-btn" style={{background:"var(--rust)"}} onClick={onDec}>−</button>
       <span className="qty-num">{qty}</span>
       <button className="qty-btn" onClick={onInc}>+</button>
     </div>
@@ -747,7 +747,7 @@ function formatMoney(amount) {
 }
 
 function formatProductPrice(product, selectedValue) {
-  return `â‚¹${formatMoney(getLineTotal(product, selectedValue, 1))} (${getSelectionLabel(product, selectedValue)})`;
+  return `₹${formatMoney(getLineTotal(product, selectedValue, 1))} (${getSelectionLabel(product, selectedValue)})`;
 }
 
 
@@ -770,7 +770,7 @@ function RepeatLastOrderButton({compact = false}) {
         return;
       }
       addMany(items);
-      toast(data.skipped_count ? `Added available items. ${data.skipped_count} unavailable item skipped.` : "Last order added to cart âœ“");
+      toast(data.skipped_count ? `Added available items. ${data.skipped_count} unavailable item skipped.` : "Last order added to cart ✓");
       nav("cart");
     } catch (e) {
       toast(e.message || "Could not repeat last order", "error");
@@ -781,7 +781,7 @@ function RepeatLastOrderButton({compact = false}) {
 
   return (
     <button className={compact ? "btn btn-ghost" : "btn-hero btn-hero-outline"} onClick={repeatLastOrder} disabled={loading}>
-      {loading ? "Addingâ€¦" : "ðŸ” Repeat Last Order"}
+      {loading ? "Adding…" : "🔁 Repeat Last Order"}
     </button>
   );
 }
@@ -810,7 +810,7 @@ function BuyAgainSection() {
   return (
     <div style={{marginTop:"3rem"}}>
       <div className="section-hd">
-        <h2 className="section-title">Buy Again ðŸ”</h2>
+        <h2 className="section-title">Buy Again 🔁</h2>
         <RepeatLastOrderButton compact />
       </div>
       <div className="grid">
@@ -853,7 +853,7 @@ function ProductCard({product, onDetail}) {
     setLocalFavoriteIds(nextFavorite ? [...ids, product.id] : ids.filter(id => id !== product.id));
     try {
       await apiFetch(`/favorites/${product.id}`, {method: nextFavorite ? "POST" : "DELETE"});
-      toast(nextFavorite ? "Saved to favorites â™¥" : "Removed from favorites");
+      toast(nextFavorite ? "Saved to favorites ♥" : "Removed from favorites");
     } catch (err) {
       setFavorite(!nextFavorite);
       toast(err.message || "Could not update favorite", "error");
@@ -862,11 +862,11 @@ function ProductCard({product, onDetail}) {
   return (
     <div className={`card ${!product.available?"unavail":""}`}>
       <div className="card-thumb" onClick={() => product.available && onDetail && onDetail(product)}>
-        <button onClick={toggleFavorite} title={favorite ? "Remove from favorites" : "Save favorite"} style={{position:"absolute",top:8,right:8,zIndex:2,width:34,height:34,borderRadius:"50%",border:"1px solid rgba(255,255,255,.7)",background:"rgba(255,255,255,.92)",boxShadow:"0 2px 10px rgba(0,0,0,.12)",cursor:"pointer",fontSize:"1rem"}}>{favorite ? "â™¥" : "â™¡"}</button>
+        <button onClick={toggleFavorite} title={favorite ? "Remove from favorites" : "Save favorite"} style={{position:"absolute",top:8,right:8,zIndex:2,width:34,height:34,borderRadius:"50%",border:"1px solid rgba(255,255,255,.7)",background:"rgba(255,255,255,.92)",boxShadow:"0 2px 10px rgba(0,0,0,.12)",cursor:"pointer",fontSize:"1rem"}}>{favorite ? "♥" : "♡"}</button>
         {imageSrc
           ? <img src={imageSrc} alt={product.name}/>
-          : <span style={{fontSize:"3rem"}}>{product.emoji || "ðŸŒ¿"}</span>}
-        {product.featured && <span className="card-feat-badge">â­ Featured</span>}
+          : <span style={{fontSize:"3rem"}}>{product.emoji || "🌿"}</span>}
+        {product.featured && <span className="card-feat-badge">⭐ Featured</span>}
         {!product.available && <span className="card-out-badge">Out of Stock</span>}
       </div>
       <div className="card-body" onClick={() => product.available && onDetail && onDetail(product)}>
@@ -911,7 +911,7 @@ function ProductCard({product, onDetail}) {
             </div>
           )}
           {qty === 0
-            ? <button className="btn-add" onClick={() => { add(product.id, weight); toast("Added to cart ðŸ›’"); }}>+ Add to Cart</button>
+            ? <button className="btn-add" onClick={() => { add(product.id, weight); toast("Added to cart 🛒"); }}>+ Add to Cart</button>
             : <QtyControl qty={qty} onInc={() => add(product.id, weight)} onDec={() => set(cartKey, qty-1)} />}
         </div>
       )}
@@ -972,26 +972,26 @@ function CouponBox() {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    NAVBAR
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 function Navbar() {
   const {user, logout} = useContext(AuthCtx);
   const {count} = useContext(CartCtx);
   const {nav, page} = useContext(RouterCtx);
   return (
     <>
-      {/* â”€â”€ Top nav bar â”€â”€ */}
+      {/* ── Top nav bar ── */}
       <nav>
         <div className="nav-inner">
           <div className="nav-logo" onClick={() => nav("home")}>
-            <span className="nav-logo-icon">ðŸŒ¿</span>
+            <span className="nav-logo-icon">🌿</span>
             <div className="nav-logo-text">Amar Veggies<span className="nav-logo-sub">Farm to Doorstep</span></div>
           </div>
 
           {/* Mobile: just a cart pill in top-right */}
           <button className="nav-cart-mobile" onClick={() => nav("cart")}>
-            ðŸ§º {count > 0 && <span className="nav-badge">{count}</span>}
+            🧺 {count > 0 && <span className="nav-badge">{count}</span>}
           </button>
 
           {/* Desktop: full link row */}
@@ -1010,50 +1010,50 @@ function Navbar() {
                   <button className="nav-btn" style={{background:"rgba(255,255,255,.12)",color:"#fff"}} onClick={() => nav("register")}>Register</button>
                 </>}
             <button className="nav-cart" onClick={() => nav("cart")}>
-              ðŸ§º Cart {count > 0 && <span className="nav-badge">{count}</span>}
+              🧺 Cart {count > 0 && <span className="nav-badge">{count}</span>}
             </button>
           </div>
         </div>
       </nav>
 
-      {/* â”€â”€ Mobile bottom tab bar â”€â”€ */}
+      {/* ── Mobile bottom tab bar ── */}
       <div className="bottom-nav">
         <button className={`bottom-nav-btn ${page==="home"?"active":""}`} onClick={() => nav("home")}>
-          <span className="bnb-icon">ðŸ </span>Home
+          <span className="bnb-icon">🏠</span>Home
         </button>
         <button className={`bottom-nav-btn ${page==="shop"?"active":""}`} onClick={() => nav("shop")}>
-          <span className="bnb-icon">ðŸ›ï¸</span>Shop
+          <span className="bnb-icon">🛍️</span>Shop
         </button>
         <button className={`bottom-nav-btn ${page==="cart"?"active":""}`} onClick={() => nav("cart")}>
-          <span className="bnb-icon">ðŸ§º</span>Cart
+          <span className="bnb-icon">🧺</span>Cart
           {count > 0 && <span className="bnb-badge">{count}</span>}
         </button>
         {user
           ? <button className={`bottom-nav-btn ${page==="orders"?"active":""}`} onClick={() => nav("orders")}>
-              <span className="bnb-icon">ðŸ“¦</span>Orders
+              <span className="bnb-icon">📦</span>Orders
             </button>
           : <button className={`bottom-nav-btn ${page==="login"?"active":""}`} onClick={() => nav("login")}>
-              <span className="bnb-icon">ðŸ‘¤</span>Sign in
+              <span className="bnb-icon">👤</span>Sign in
             </button>}
         {user?.is_admin
           ? <button className={`bottom-nav-btn ${page==="admin"?"active":""}`} onClick={() => nav("admin")}>
-              <span className="bnb-icon">âš™ï¸</span>Admin
+              <span className="bnb-icon">⚙️</span>Admin
             </button>
           : user
           ? <button className="bottom-nav-btn" onClick={() => { logout(); nav("home"); }}>
-              <span className="bnb-icon">ðŸšª</span>Log out
+              <span className="bnb-icon">🚪</span>Log out
             </button>
           : <button className={`bottom-nav-btn ${page==="delivery"?"active":""}`} onClick={() => nav("delivery")}>
-              <span className="bnb-icon">ðŸšš</span>Delivery
+              <span className="bnb-icon">🚚</span>Delivery
             </button>}
       </div>
     </>
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    HOME PAGE
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 function HomePage() {
   const {nav} = useContext(RouterCtx);
   const {user} = useContext(AuthCtx);
@@ -1125,26 +1125,26 @@ function HomePage() {
       <div className="hero">
         <div className="hero-bg"/>
         <div className="hero-content">
-          <div className="hero-tag">ðŸš² Same-day delivery available</div>
+          <div className="hero-tag">🚲 Same-day delivery available</div>
           <h1>Fresh from the Farm,<br/><em>Right to Your Door</em></h1>
           <p className="hero-sub">Handpicked seasonal fruits and vegetables delivered with care. No middlemen, just pure freshness.</p>
           <div className="hero-actions">
-            <button className="btn-hero btn-hero-primary" onClick={() => nav("shop")}>Shop Now â†’</button>
+            <button className="btn-hero btn-hero-primary" onClick={() => nav("shop")}>Shop Now →</button>
             <RepeatLastOrderButton />
             {installPrompt && !isInstalled && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && (
               <button className="btn-hero btn-hero-outline" onClick={installApp}>
-                ðŸ“² Install App
+                📲 Install App
               </button>
             )}
             {user && canUseNotifications() && !notificationsEnabled && (
               <button className="btn-hero btn-hero-outline" onClick={enableNotifications}>
-                ðŸ”” Enable Notifications
+                🔔 Enable Notifications
               </button>
             )}
           </div>
           <div className="hero-stats">
             <div><div className="hero-stat-val">{stats.products}+</div><div className="hero-stat-label">Fresh Items</div></div>
-            <div><div className="hero-stat-val">â‚¹0</div><div className="hero-stat-label">Delivery above â‚¹300</div></div>
+            <div><div className="hero-stat-val">₹0</div><div className="hero-stat-label">Delivery above ₹300</div></div>
             <div><div className="hero-stat-val">Today</div><div className="hero-stat-label">Same-day Slots</div></div>
           </div>
         </div>
@@ -1157,7 +1157,7 @@ function HomePage() {
             <div className="cat-strip">
               {categories.map(c => (
                 <button key={c} className="cat-pill" onClick={() => nav("shop", {category: c})}>
-                  {c === "Fruit" ? "ðŸŽ" : c === "Vegetable" ? "ðŸ¥¦" : "ðŸŒ¿"} {c}
+                  {c === "Fruit" ? "🍎" : c === "Vegetable" ? "🥦" : "🌿"} {c}
                 </button>
               ))}
             </div>
@@ -1170,8 +1170,8 @@ function HomePage() {
         {featured.length > 0 && (
           <>
             <div className="section-hd">
-              <h2 className="section-title">Featured Picks â­</h2>
-              <button className="section-link btn" onClick={() => nav("shop")}>View all â†’</button>
+              <h2 className="section-title">Featured Picks ⭐</h2>
+              <button className="section-link btn" onClick={() => nav("shop")}>View all →</button>
             </div>
             <div className="grid">
               {featured.map(p => <ProductCard key={p.id} product={p} onDetail={pr => nav("product", {product: pr})} />)}
@@ -1185,10 +1185,10 @@ function HomePage() {
         <div style={{margin:"4rem 0 1rem"}}>
           <h2 className="section-title mb-3">Why Amar Veggies?</h2>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:"1.25rem"}}>
-            {[["ðŸŒ±","Farm Fresh","Directly sourced from local farms with no cold-chain cuts"],
-              ["âš¡","Same-day Delivery","Order before noon, receive by evening"],
-              ["ðŸ’š","No Wastage","We pack only what's in season and ripe"],
-              ["ðŸ”„","Easy Returns","Got something wilted? We'll make it right"],
+            {[["🌱","Farm Fresh","Directly sourced from local farms with no cold-chain cuts"],
+              ["⚡","Same-day Delivery","Order before noon, receive by evening"],
+              ["💚","No Wastage","We pack only what's in season and ripe"],
+              ["🔄","Easy Returns","Got something wilted? We'll make it right"],
             ].map(([icon,title,desc]) => (
               <div key={title} style={{background:"var(--white)",borderRadius:"var(--r)",border:"1.5px solid var(--border)",padding:"1.5rem"}}>
                 <div style={{fontSize:"2rem",marginBottom:".75rem"}}>{icon}</div>
@@ -1203,9 +1203,9 @@ function HomePage() {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    SHOP PAGE
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 function ShopPage() {
   const {user} = useContext(AuthCtx);
   const {nav, params} = useContext(RouterCtx);
@@ -1243,25 +1243,25 @@ function ShopPage() {
         <h1 className="page-title">Fresh Produce</h1>
         <p className="page-sub" style={{marginBottom:".75rem"}}>{filtered.length} items available</p>
         <div className="search-wrap">
-          <span className="search-icon">ðŸ”</span>
-          <input className="search-input" placeholder="Search fruits, vegetablesâ€¦" value={search} onChange={e => setSearch(e.target.value)} />
+          <span className="search-icon">🔍</span>
+          <input className="search-input" placeholder="Search fruits, vegetables…" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
       </div>
       <div className="cat-strip mb-3">
-        {cats.map(c => <button key={c} className={`cat-pill ${category===c?"active":""}`} onClick={() => setCategory(c)}>{c === "Fruit" ? "ðŸŽ " : c === "Vegetable" ? "ðŸ¥¦ " : c==="All"?"ðŸŒ¿ ":""}{c}</button>)}
+        {cats.map(c => <button key={c} className={`cat-pill ${category===c?"active":""}`} onClick={() => setCategory(c)}>{c === "Fruit" ? "🍎 " : c === "Vegetable" ? "🥦 " : c==="All"?"🌿 ":""}{c}</button>)}
       </div>
       {loading
-        ? <div className="empty-state"><div className="empty-state-icon">â³</div><p>Loading fresh produceâ€¦</p></div>
+        ? <div className="empty-state"><div className="empty-state-icon">⏳</div><p>Loading fresh produce…</p></div>
         : filtered.length === 0
-        ? <div className="empty-state"><div className="empty-state-icon">ðŸ”</div><h3>Nothing found</h3><p>Try a different search or category</p></div>
+        ? <div className="empty-state"><div className="empty-state-icon">🔍</div><h3>Nothing found</h3><p>Try a different search or category</p></div>
         : <div className="grid">{filtered.map(p => <ProductCard key={p.id} product={p} onDetail={pr => nav("product",{product:pr})} />)}</div>}
     </div>
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    PRODUCT DETAIL PAGE
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 function ProductPage() {
   const {params, nav} = useContext(RouterCtx);
   const {cart, add, set} = useContext(CartCtx);
@@ -1273,17 +1273,17 @@ function ProductPage() {
   const qty = cart[detailKey]?.quantity || 0;
   return (
     <div className="page container" style={{paddingTop:"2rem",maxWidth:720}}>
-      <button className="btn btn-ghost mb-3" onClick={() => nav("shop")}>â† Back to Shop</button>
+      <button className="btn btn-ghost mb-3" onClick={() => nav("shop")}>← Back to Shop</button>
       <div style={{background:"var(--white)",borderRadius:20,border:"1.5px solid var(--border)",overflow:"hidden"}}>
         <div style={{height:260,background:"linear-gradient(135deg,#e8f5ee,#d8f3dc)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"5rem",overflow:"hidden",position:"relative"}}>
           {productImageSrc(p)
             ? <img src={productImageSrc(p)} alt={p.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-            : <span>{p.emoji || "ðŸŒ¿"}</span>}
+            : <span>{p.emoji || "🌿"}</span>}
         </div>
         <div style={{padding:"2rem"}}>
           <div className="chip mb-2">{p.category}</div>
           <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2.2rem",fontWeight:700,marginBottom:".5rem"}}>{p.name}</h1>
-          <div style={{fontSize:"1.5rem",color:"var(--leaf)",fontWeight:700,marginBottom:"1rem"}}>â‚¹{formatMoney(p.price)} <span style={{color:"var(--muted)",fontSize:".9rem",fontWeight:400}}>/ {getUnitBaseLabel(p.unit)}</span></div>
+          <div style={{fontSize:"1.5rem",color:"var(--leaf)",fontWeight:700,marginBottom:"1rem"}}>₹{formatMoney(p.price)} <span style={{color:"var(--muted)",fontSize:".9rem",fontWeight:400}}>/ {getUnitBaseLabel(p.unit)}</span></div>
           {p.description && (
             <div
               style={{
@@ -1297,16 +1297,16 @@ function ProductPage() {
             </div>
           )}
           <div className="flex gap-2 items-center flex-wrap">
-            <span className={`pill ${p.available?"pill-green":"pill-red"}`}>{p.available?"âœ“ In Stock":"âœ— Out of Stock"}</span>
-            {p.featured && <span className="pill" style={{background:"#fef9c3",color:"#92400e"}}>â­ Featured</span>}
+            <span className={`pill ${p.available?"pill-green":"pill-red"}`}>{p.available?"✓ In Stock":"✗ Out of Stock"}</span>
+            {p.featured && <span className="pill" style={{background:"#fef9c3",color:"#92400e"}}>⭐ Featured</span>}
           </div>
           {p.available && (
             <div className="mt-4">
               {qty === 0
-                ? <button className="btn btn-primary btn-lg" onClick={() => { add(p.id, detailWeight); toast("Added to cart ðŸ›’"); }}>+ Add to Cart</button>
+                ? <button className="btn btn-primary btn-lg" onClick={() => { add(p.id, detailWeight); toast("Added to cart 🛒"); }}>+ Add to Cart</button>
                 : <div style={{display:"flex",alignItems:"center",gap:"1rem",flexWrap:"wrap"}}>
                     <QtyControl qty={qty} onInc={() => add(p.id, detailWeight)} onDec={() => set(detailKey, qty-1)} />
-                    <button className="btn btn-gold" onClick={() => nav("cart")}>Go to Cart â†’</button>
+                    <button className="btn btn-gold" onClick={() => nav("cart")}>Go to Cart →</button>
                   </div>}
             </div>
           )}
@@ -1316,9 +1316,9 @@ function ProductPage() {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    CART PAGE
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 function CartPage() {
   const {items, subtotal, subtotalBeforeCoupon, couponDiscount, delivery, total, set, remove, count, activeCoupon} = useContext(CartCtx);
   const {user} = useContext(AuthCtx);
@@ -1326,7 +1326,7 @@ function CartPage() {
   if (count === 0) return (
     <div className="page">
       <div className="empty-state">
-        <div className="empty-state-icon">ðŸ§º</div>
+        <div className="empty-state-icon">🧺</div>
         <h3>Your basket is empty</h3>
         <p className="mb-3">Add some fresh produce to get started</p>
         <div className="flex gap-2 justify-center flex-wrap">
@@ -1338,21 +1338,21 @@ function CartPage() {
   );
   return (
     <div className="page container" style={{paddingTop:"2rem"}}>
-      <h1 className="page-title">Your Basket ðŸ§º</h1>
+      <h1 className="page-title">Your Basket 🧺</h1>
       <p className="page-sub">{count} items</p>
       <div className="cart-layout">
         <div>
           {items.map(item => (
             <div key={item.cartKey} className="cart-item">
-              <div className="cart-item-img">{productImageSrc(item) ? <img src={productImageSrc(item)} alt={item.name}/> : (item.emoji || "ðŸŒ¿")}</div>
+              <div className="cart-item-img">{productImageSrc(item) ? <img src={productImageSrc(item)} alt={item.name}/> : (item.emoji || "🌿")}</div>
               <div className="cart-item-info">
-                <div className="cart-item-name">{item.name} ({getSelectionLabel(item, item.weight, true)}) Ã— {item.quantity}</div>
-                <div className="cart-item-meta">â‚¹{formatMoney(item.price)} / {getUnitBaseLabel(item.unit)}</div>
+                <div className="cart-item-name">{item.name} ({getSelectionLabel(item, item.weight, true)}) × {item.quantity}</div>
+                <div className="cart-item-meta">₹{formatMoney(item.price)} / {getUnitBaseLabel(item.unit)}</div>
                 <div className="mt-1"><QtyControl qty={item.quantity} onInc={() => set(item.cartKey, item.quantity+1)} onDec={() => { if(item.quantity===1) remove(item.cartKey); else set(item.cartKey, item.quantity-1); }} /></div>
               </div>
               <div style={{textAlign:"right"}}>
                 {activeCoupon && item.originalLineTotal > item.lineTotal && <div className="price-original">₹{formatMoney(item.originalLineTotal)}</div>}
-                <div className="cart-item-price">â‚¹{formatMoney(item.lineTotal)}</div>
+                <div className="cart-item-price">₹{formatMoney(item.lineTotal)}</div>
               </div>
             </div>
           ))}
@@ -1361,21 +1361,21 @@ function CartPage() {
         <div className="cart-summary-box">
           <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem",fontWeight:700,marginBottom:"1.25rem"}}>Order Summary</h3>
           <CouponBox />
-          <div className="flex justify-between mb-2"><span className="text-muted">Subtotal</span><span className="fw-700">â‚¹{formatMoney(activeCoupon ? subtotalBeforeCoupon : subtotal)}</span></div>
+          <div className="flex justify-between mb-2"><span className="text-muted">Subtotal</span><span className="fw-700">₹{formatMoney(activeCoupon ? subtotalBeforeCoupon : subtotal)}</span></div>
           {activeCoupon && <div className="flex justify-between mb-2"><span className="text-muted">Coupon</span><span className="fw-700 text-leaf">-₹{formatMoney(couponDiscount)}</span></div>}
           <div className="flex justify-between mb-2">
             <span className="text-muted">Delivery</span>
-            <span className="fw-700" style={{color:delivery===0?"var(--leaf)":"inherit"}}>{delivery===0?"FREE ðŸŽ‰":`â‚¹${delivery}`}</span>
+            <span className="fw-700" style={{color:delivery===0?"var(--leaf)":"inherit"}}>{delivery===0?"FREE 🎉":`₹${delivery}`}</span>
           </div>
-          {delivery > 0 && <div style={{background:"var(--cream)",borderRadius:10,padding:".6rem .85rem",fontSize:".78rem",color:"var(--muted)",marginBottom:"1rem"}}>Add â‚¹{300-subtotal} more for free delivery</div>}
+          {delivery > 0 && <div style={{background:"var(--cream)",borderRadius:10,padding:".6rem .85rem",fontSize:".78rem",color:"var(--muted)",marginBottom:"1rem"}}>Add ₹{300-subtotal} more for free delivery</div>}
           <hr className="divider"/>
           <div className="flex justify-between mb-3" style={{alignItems:"center"}}>
             <span style={{fontWeight:700}}>Total</span>
-            <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:"var(--leaf)"}}>â‚¹{formatMoney(total)}</span>
+            <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.5rem",fontWeight:700,color:"var(--leaf)"}}>₹{formatMoney(total)}</span>
           </div>
-          <div style={{background:"var(--cream)",borderRadius:10,padding:".65rem .85rem",fontSize:".78rem",color:"var(--muted)",marginBottom:"1.25rem",textAlign:"center"}}>ðŸ’µ Cash on Delivery</div>
+          <div style={{background:"var(--cream)",borderRadius:10,padding:".65rem .85rem",fontSize:".78rem",color:"var(--muted)",marginBottom:"1.25rem",textAlign:"center"}}>💵 Cash on Delivery</div>
           <button className="btn btn-primary btn-full btn-lg" onClick={() => user ? nav("checkout") : nav("login", {redirect:"checkout"})}>
-            {user ? "Proceed to Checkout â†’" : "Sign in to Checkout â†’"}
+            {user ? "Proceed to Checkout →" : "Sign in to Checkout →"}
           </button>
         </div>
       </div>
@@ -1384,9 +1384,9 @@ function CartPage() {
 }
 
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    LEAFLET LOCATION PICKER
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 async function reverseGeocode(lat, lng, fallback = "") {
   const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`;
   const res = await fetch(url, {headers: {"Accept": "application/json"}});
@@ -1486,7 +1486,7 @@ function LocationPicker({value, onChange}) {
       const lng = Number(result.lon);
       movePin(lat, lng);
       setPickedLocation(lat, lng, result.display_name || query, "");
-      toast("Location found âœ“");
+      toast("Location found ✓");
     } catch (e) {
       toast(e.message || "Could not find that address", "error");
     }
@@ -1501,7 +1501,7 @@ function LocationPicker({value, onChange}) {
       let address = value.address;
       try { address = await reverseGeocode(lat, lng, value.address); } catch {}
       setPickedLocation(lat, lng, address, "");
-      toast("Location pinned âœ“");
+      toast("Location pinned ✓");
     }, () => toast("Could not access location. Allow location permission or search manually.", "error"), {enableHighAccuracy:true, timeout:10000});
   };
 
@@ -1512,22 +1512,22 @@ function LocationPicker({value, onChange}) {
         <input ref={inputRef} placeholder="Search your building, society, landmark or area" defaultValue={value.address || ""} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); findAddress(); } }}/>
       </div>
       <div className="location-actions">
-        <button className="btn btn-primary" type="button" onClick={useCurrentLocation}>ðŸ“ Use my current location</button>
+        <button className="btn btn-primary" type="button" onClick={useCurrentLocation}>📍 Use my current location</button>
         <button className="btn btn-ghost" type="button" onClick={findAddress}>Find on map</button>
         {value.lat && value.lng && <a className="btn btn-ghost" target="_blank" href={`https://www.google.com/maps/search/?api=1&query=${value.lat},${value.lng}`}>Open pin</a>}
       </div>
       <div id="checkoutMap" ref={mapRef} className="map-canvas checkout-map map-container">
         {mapErr && <div className="map-placeholder">{mapErr}. You can still type the address manually.</div>}
       </div>
-      {value.lat && value.lng && <div className="location-pill">âœ“ Exact location saved</div>}
+      {value.lat && value.lng && <div className="location-pill">✓ Exact location saved</div>}
       <div className="location-help">Tip: search your address, then drag the marker exactly to your gate/building entrance for smoother delivery.</div>
     </div>
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    CHECKOUT PAGE
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 function CheckoutPage() {
   const {items, subtotal, subtotalBeforeCoupon, couponDiscount, delivery, total, clear, cart, activeCoupon} = useContext(CartCtx);
   const {user} = useContext(AuthCtx);
@@ -1560,7 +1560,7 @@ function CheckoutPage() {
           notes: prev.notes || previous.notes
         }));
         setPreviousLoaded(true);
-        toast("Previous checkout details loaded âœ“");
+        toast("Previous checkout details loaded ✓");
       } catch (e) {
         if (!cancelled) setPreviousLoaded(true);
       }
@@ -1715,7 +1715,7 @@ function CheckoutPage() {
       if (paymentMethod === "online") {
         const order = await placeOnlineOrder();
         if (!order) return;
-        toast("Payment successful âœ“");
+        toast("Payment successful ✓");
         nav("order-success", {order});
       } else {
         await placeCodOrder();
@@ -1751,34 +1751,34 @@ function CheckoutPage() {
           {err && <div className="form-err">{err}</div>}
           {items.map(i => (
             <div key={i.id} className="flex justify-between mb-1" style={{fontSize:".83rem",paddingBottom:".5rem",borderBottom:"1px solid var(--border)"}}>
-              <span>{i.emoji} {i.name} Ã— {i.quantity} {getSelectionLabel(i, i.weight, true)}</span>
+              <span>{i.emoji} {i.name} × {i.quantity} {getSelectionLabel(i, i.weight, true)}</span>
               <span className="fw-700">
                 {activeCoupon && i.originalLineTotal > i.lineTotal && <span className="price-original" style={{marginRight:6}}>₹{formatMoney(i.originalLineTotal)}</span>}
-                â‚¹{formatMoney(i.lineTotal)}
+                ₹{formatMoney(i.lineTotal)}
               </span>
             </div>
           ))}
           <hr className="divider"/>
           <CouponBox />
-          <div className="flex justify-between mb-1 text-sm"><span className="text-muted">Subtotal</span><span>â‚¹{formatMoney(activeCoupon ? subtotalBeforeCoupon : subtotal)}</span></div>
+          <div className="flex justify-between mb-1 text-sm"><span className="text-muted">Subtotal</span><span>₹{formatMoney(activeCoupon ? subtotalBeforeCoupon : subtotal)}</span></div>
           {activeCoupon && <div className="flex justify-between mb-1 text-sm"><span className="text-muted">Coupon</span><span className="text-leaf">-₹{formatMoney(couponDiscount)}</span></div>}
-          <div className="flex justify-between mb-2 text-sm"><span className="text-muted">Delivery</span><span style={{color:delivery===0?"var(--leaf)":"inherit"}}>{delivery===0?"FREE":"â‚¹"+delivery}</span></div>
+          <div className="flex justify-between mb-2 text-sm"><span className="text-muted">Delivery</span><span style={{color:delivery===0?"var(--leaf)":"inherit"}}>{delivery===0?"FREE":"₹"+delivery}</span></div>
           <div className="flex justify-between" style={{fontWeight:700,fontSize:"1.1rem",marginBottom:"1.25rem"}}>
-            <span>Total</span><span style={{color:"var(--leaf)",fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem"}}>â‚¹{formatMoney(total)}</span>
+            <span>Total</span><span style={{color:"var(--leaf)",fontFamily:"'Cormorant Garamond',serif",fontSize:"1.4rem"}}>₹{formatMoney(total)}</span>
           </div>
           <div style={{borderTop:"1px solid var(--border)",borderBottom:"1px solid var(--border)",padding:"1rem 0",marginBottom:"1.25rem",fontSize:".82rem",color:"var(--muted)"}}>
             <div style={{fontWeight:700,color:"var(--ink)",marginBottom:".75rem"}}>Choose Payment Method</div>
             <label style={{display:"flex",alignItems:"center",gap:".6rem",marginBottom:".65rem",cursor:"pointer"}}>
               <input type="radio" name="payment" value="cod" checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")}/>
-              <span>ðŸ’µ Cash on Delivery</span>
+              <span>💵 Cash on Delivery</span>
             </label>
             <label style={{display:"flex",alignItems:"center",gap:".6rem",cursor:"pointer"}}>
               <input type="radio" name="payment" value="online" checked={paymentMethod === "online"} onChange={() => setPaymentMethod("online")}/>
-              <span>ðŸ’³ Pay Online with Razorpay / UPI</span>
+              <span>💳 Pay Online with Razorpay / UPI</span>
             </label>
           </div>
           <button className="btn btn-primary btn-full btn-lg checkout-actions checkout-buttons" onClick={submit} disabled={loading}>
-            {loading ? (paymentMethod === "online" ? "Opening Paymentâ€¦" : "Placing Orderâ€¦") : (paymentMethod === "online" ? `Pay â‚¹${formatMoney(total)}` : `Place Order â‚¹${formatMoney(total)}`)}
+            {loading ? (paymentMethod === "online" ? "Opening Payment…" : "Placing Order…") : (paymentMethod === "online" ? `Pay ₹${formatMoney(total)}` : `Place Order ₹${formatMoney(total)}`)}
           </button>
           <p className="text-xs text-muted mt-2" style={{textAlign:"center"}}>
             {paymentMethod === "online" ? "Secure payment powered by Razorpay" : "You'll pay in cash upon delivery"}
@@ -1789,9 +1789,9 @@ function CheckoutPage() {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    ORDER SUCCESS
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 function OrderSuccessPage() {
   const {params, nav} = useContext(RouterCtx);
   const order = params.order;
@@ -1799,7 +1799,7 @@ function OrderSuccessPage() {
   return (
     <div className="page" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"calc(100vh - 68px)"}}>
       <div style={{background:"var(--white)",borderRadius:24,border:"1.5px solid var(--border)",padding:"3rem 2.5rem",maxWidth:480,width:"100%",textAlign:"center",margin:"2rem",boxShadow:"var(--shadow)"}}>
-        <div style={{fontSize:"4rem",marginBottom:"1rem"}}>ðŸŽ‰</div>
+        <div style={{fontSize:"4rem",marginBottom:"1rem"}}>🎉</div>
         <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"2.2rem",fontWeight:700,color:"var(--leaf)",marginBottom:".5rem"}}>Order Placed!</h1>
         <p className="text-muted mb-3">Your fresh produce is being prepared and will arrive soon.</p>
         <div style={{background:"var(--cream)",borderRadius:12,padding:".75rem 1.25rem",marginBottom:"1.5rem",display:"inline-block"}}>
@@ -1809,14 +1809,14 @@ function OrderSuccessPage() {
         <div style={{background:"var(--paper)",borderRadius:12,padding:"1rem",marginBottom:"2rem",textAlign:"left"}}>
           {order.items?.map(i => (
             <div key={i.product_id} className="flex justify-between text-sm mb-1">
-              <span>{i.emoji} {i.name} Ã— {i.quantity}</span><span>â‚¹{i.line_total}</span>
+              <span>{i.emoji} {i.name} × {i.quantity}</span><span>₹{i.line_total}</span>
             </div>
           ))}
           <hr className="divider"/>
-          <div className="flex justify-between fw-700"><span>Total</span><span style={{color:"var(--leaf)"}}>â‚¹{formatMoney(order.total)}</span></div>
+          <div className="flex justify-between fw-700"><span>Total</span><span style={{color:"var(--leaf)"}}>₹{formatMoney(order.total)}</span></div>
         </div>
         <div style={{background:"#fef9c3",borderRadius:10,padding:".65rem",fontSize:".8rem",color:"#92400e",marginBottom:"1.5rem"}}>
-          ðŸ’³ Payment: {order.payment_status === "paid" ? "Paid Online" : "Cash on Delivery"}
+          💳 Payment: {order.payment_status === "paid" ? "Paid Online" : "Cash on Delivery"}
           {order.delivery_maps_url && <><br/><a href={order.delivery_maps_url} target="_blank" style={{color:"#92400e",fontWeight:700}}>View pinned location</a></>}
         </div>
         <div className="flex gap-2 justify-center flex-wrap">
@@ -1828,9 +1828,9 @@ function OrderSuccessPage() {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    ORDERS PAGE
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 function OrdersPage() {
   const {user} = useContext(AuthCtx);
   const {nav} = useContext(RouterCtx);
@@ -1901,11 +1901,11 @@ function OrdersPage() {
   const ALL_STATUSES = ["pending","confirmed","out_for_delivery","delivered"];
   const statusLabel = {pending:"Order Placed",confirmed:"Confirmed",out_for_delivery:"Out for Delivery",delivered:"Delivered"};
 
-  if (loading) return <div className="empty-state"><div className="empty-state-icon">â³</div><p>Loading ordersâ€¦</p></div>;
+  if (loading) return <div className="empty-state"><div className="empty-state-icon">⏳</div><p>Loading orders…</p></div>;
   if (orders.length === 0) return (
     <div className="page">
       <div className="empty-state">
-        <div className="empty-state-icon">ðŸ“¦</div>
+        <div className="empty-state-icon">📦</div>
         <h3>No orders yet</h3>
         <p className="mb-3">Your order history will appear here</p>
         <button className="btn btn-primary" onClick={() => nav("shop")}>Start Shopping</button>
@@ -1922,7 +1922,7 @@ function OrdersPage() {
           <div className="order-hd">
             <div>
               <div className="order-id-text">Order #{o.id.slice(-8).toUpperCase()}</div>
-              <div className="order-meta">{new Date(o.created_at).toLocaleDateString("en-IN", {day:"numeric",month:"short",year:"numeric"})} Â· {o.items?.length} item{o.items?.length!==1?"s":""} Â· â‚¹{o.total}</div>
+              <div className="order-meta">{new Date(o.created_at).toLocaleDateString("en-IN", {day:"numeric",month:"short",year:"numeric"})} · {o.items?.length} item{o.items?.length!==1?"s":""} · ₹{o.total}</div>
             </div>
             <StatusBadge status={o.status}/>
           </div>
@@ -1940,7 +1940,7 @@ function OrdersPage() {
               <h2 className="modal-title" style={{margin:0}}>Order Details</h2>
               <StatusBadge status={selected.status}/>
             </div>
-            <p className="text-sm text-muted mb-2">#{selected.id.slice(-8).toUpperCase()} Â· {new Date(selected.created_at).toLocaleDateString("en-IN",{day:"numeric",month:"long",year:"numeric"})}</p>
+            <p className="text-sm text-muted mb-2">#{selected.id.slice(-8).toUpperCase()} · {new Date(selected.created_at).toLocaleDateString("en-IN",{day:"numeric",month:"long",year:"numeric"})}</p>
 
             <div className="timeline">
               {ALL_STATUSES.map((s, i) => {
@@ -1961,11 +1961,11 @@ function OrdersPage() {
 
             {selected.items?.map(i => (
               <div key={i.product_id} className="flex justify-between text-sm mb-1 pb-1" style={{borderBottom:"1px solid var(--border)"}}>
-                <span>{i.emoji} {i.name} Ã— {i.quantity} {i.unit}</span><span className="fw-700">â‚¹{i.line_total}</span>
+                <span>{i.emoji} {i.name} × {i.quantity} {i.unit}</span><span className="fw-700">₹{i.line_total}</span>
               </div>
             ))}
-            <div className="flex justify-between fw-700 mt-2"><span>Total</span><span style={{color:"var(--leaf)"}}>â‚¹{selected.total}</span></div>
-            <p className="text-sm text-muted mt-2">ðŸ“ {selected.address} Â· ðŸ“ž {selected.phone}</p>
+            <div className="flex justify-between fw-700 mt-2"><span>Total</span><span style={{color:"var(--leaf)"}}>₹{selected.total}</span></div>
+            <p className="text-sm text-muted mt-2">📍 {selected.address} · 📞 {selected.phone}</p>
             {selected.delivery_maps_url && <p className="text-sm mt-1"><a href={selected.delivery_maps_url} target="_blank" style={{color:"var(--leaf)",fontWeight:700}}>Open pinned location</a></p>}
             {tracking?.delivery_partner && (
               <div style={{
@@ -1974,7 +1974,7 @@ function OrdersPage() {
                 padding: "1rem",
                 marginTop: "1rem"
               }}>
-                <div className="fw-700 mb-1">ðŸšš Delivery Tracking</div>
+                <div className="fw-700 mb-1">🚚 Delivery Tracking</div>
 
                 <p className="text-sm text-muted mb-1">
                   Partner: {tracking.delivery_partner}
@@ -2013,7 +2013,7 @@ function OrdersPage() {
                           className="btn btn-ghost"
                           href={`tel:${tracking.delivery_partner_phone}`}
                         >
-                          ðŸ“ž Call Partner
+                          📞 Call Partner
                         </a>
                       )}
                     </div>
@@ -2034,7 +2034,7 @@ function OrdersPage() {
                           className="btn btn-ghost"
                           href={`tel:${tracking.delivery_partner_phone}`}
                         >
-                          ðŸ“ž Call Partner
+                          📞 Call Partner
                         </a>
                       </div>
                     )}
@@ -2050,9 +2050,9 @@ function OrdersPage() {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    AUTH PAGES
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 function ForgotPasswordModal({onClose}) {
   const {sendForgotPasswordOtp, resetPassword} = useContext(AuthCtx);
   const toast = useContext(ToastCtx);
@@ -2102,8 +2102,8 @@ function ForgotPasswordModal({onClose}) {
         <div className="modal-footer">
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
           {step === 1
-            ? <button className="btn btn-primary" onClick={requestOtp} disabled={loading}>{loading?"Sendingâ€¦":"Send OTP"}</button>
-            : <button className="btn btn-primary" onClick={reset} disabled={loading}>{loading?"Savingâ€¦":"Reset Password"}</button>}
+            ? <button className="btn btn-primary" onClick={requestOtp} disabled={loading}>{loading?"Sending…":"Send OTP"}</button>
+            : <button className="btn btn-primary" onClick={reset} disabled={loading}>{loading?"Saving…":"Reset Password"}</button>}
         </div>
       </div>
     </div>
@@ -2124,7 +2124,7 @@ function LoginPage() {
     setLoading(true); setErr("");
     try {
       const u = await login(form.identifier, form.password);
-      toast(`Welcome back, ${u.name}! ðŸŒ¿`);
+      toast(`Welcome back, ${u.name}! 🌿`);
       nav(params.redirect || (u.is_admin ? "admin" : "shop"));
     } catch(e) { setErr(e.message); }
     setLoading(false);
@@ -2146,7 +2146,7 @@ function LoginPage() {
       callback: async (response) => {
         try {
           const u = await googleLogin(response.credential);
-          toast(`Welcome, ${u.name}! ðŸŒ¿`);
+          toast(`Welcome, ${u.name}! 🌿`);
           nav(params.redirect || (u.is_admin ? "admin" : "shop"));
         } catch (e) {
           setErr(e.message || "Google sign-in failed");
@@ -2160,13 +2160,13 @@ function LoginPage() {
   return (
     <div className="auth-shell">
       <div className="auth-card">
-        <div className="auth-brand"><div className="auth-brand-inner"><div className="auth-logo">Amar Veggies <span>âŒ</span></div><div className="auth-tagline">Farm to Doorstep</div><div className="auth-leaf-line">ðŸŒ¿</div><div className="auth-headline">Fresh. Natural.<br/>Delivered with care.</div><p className="auth-copy">From our farm to your home â€” pure, healthy, and affordable veggies delivered to your doorstep.</p></div><div className="auth-basket">ðŸ¥¬ðŸ§ºðŸ¥•</div></div>
+        <div className="auth-brand"><div className="auth-brand-inner"><div className="auth-logo">Amar Veggies <span>⌁</span></div><div className="auth-tagline">Farm to Doorstep</div><div className="auth-leaf-line">🌿</div><div className="auth-headline">Fresh. Natural.<br/>Delivered with care.</div><p className="auth-copy">From our farm to your home — pure, healthy, and affordable veggies delivered to your doorstep.</p></div><div className="auth-basket">🥬🧺🥕</div></div>
         <div className="auth-panel">
           <h1>Welcome back</h1><p className="auth-panel-sub">Sign in to your account to continue</p>{err && <div className="form-err">{err}</div>}
-          <div className="auth-field"><label>Email address or Mobile number</label><div className="auth-input-wrap"><span className="auth-input-icon">ðŸ‘¤</span><input placeholder="Enter your email or mobile number" value={form.identifier} onChange={e=>setForm(f=>({...f,identifier:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&submit()}/></div></div>
-          <div className="auth-field"><label>Password</label><div className="auth-input-wrap"><span className="auth-input-icon">ðŸ”’</span><input type="password" placeholder="Enter your password" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&submit()}/></div></div>
+          <div className="auth-field"><label>Email address or Mobile number</label><div className="auth-input-wrap"><span className="auth-input-icon">👤</span><input placeholder="Enter your email or mobile number" value={form.identifier} onChange={e=>setForm(f=>({...f,identifier:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&submit()}/></div></div>
+          <div className="auth-field"><label>Password</label><div className="auth-input-wrap"><span className="auth-input-icon">🔒</span><input type="password" placeholder="Enter your password" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&submit()}/></div></div>
           <div className="auth-row"><label className="auth-check"><input type="checkbox" checked={form.remember} onChange={e=>setForm(f=>({...f,remember:e.target.checked}))}/>Remember Me</label><button className="auth-link" onClick={()=>setForgotOpen(true)}>Forgot Password?</button></div>
-          <button className="auth-submit" onClick={submit} disabled={loading}>{loading?"Signing inâ€¦":"Sign in"}</button><div className="auth-or">OR</div><button className="google-btn" onClick={googleSignIn}><span className="google-g">G</span>Continue with Google</button>
+          <button className="auth-submit" onClick={submit} disabled={loading}>{loading?"Signing in…":"Sign in"}</button><div className="auth-or">OR</div><button className="google-btn" onClick={googleSignIn}><span className="google-g">G</span>Continue with Google</button>
           <div className="auth-switch">New here? <button onClick={() => nav("register")}>Create an account</button></div>
         </div>
       </div>
@@ -2202,7 +2202,7 @@ function RegisterPage() {
       const d = await sendRegisterOtp(name, email || null, phone || null);
       setStep("otp");
       setDevOtp(d.dev_otp || "");
-      toast("OTP sent âœ“");
+      toast("OTP sent ✓");
     } catch(e) { setErr(e.message); }
     setLoading(false);
   };
@@ -2220,7 +2220,7 @@ function RegisterPage() {
     setLoading(true); setErr("");
     try {
       const u = await verifyOtpRegister(name, email || null, phone || null, otp, form.password);
-      toast(`Welcome, ${u.name}! ðŸŒ¿`);
+      toast(`Welcome, ${u.name}! 🌿`);
       nav("shop");
     } catch(e) { setErr(e.message); }
     setLoading(false);
@@ -2231,13 +2231,13 @@ function RegisterPage() {
       <div className="auth-card">
         <div className="auth-brand">
           <div className="auth-brand-inner">
-            <div className="auth-logo">Amar Veggies <span>âŒ</span></div>
+            <div className="auth-logo">Amar Veggies <span>⌁</span></div>
             <div className="auth-tagline">Farm to Doorstep</div>
-            <div className="auth-leaf-line">ðŸŒ¿</div>
+            <div className="auth-leaf-line">🌿</div>
             <div className="auth-headline">Create once.<br/>Order fresh forever.</div>
             <p className="auth-copy">Verify your email or mobile number only during signup. After that, use your password for quick future logins.</p>
           </div>
-          <div className="auth-basket">ðŸ¥¦ðŸ§ºðŸ…</div>
+          <div className="auth-basket">🥦🧺🍅</div>
         </div>
 
         <div className="auth-panel">
@@ -2258,7 +2258,7 @@ function RegisterPage() {
           <div className="auth-field">
             <label>Full Name</label>
             <div className="auth-input-wrap">
-              <span className="auth-input-icon">ðŸ‘¤</span>
+              <span className="auth-input-icon">👤</span>
               <input placeholder="Priya Sharma" value={form.name} disabled={step === "otp"} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/>
             </div>
           </div>
@@ -2267,7 +2267,7 @@ function RegisterPage() {
             <div className="auth-field">
               <label>Gmail / Email</label>
               <div className="auth-input-wrap">
-                <span className="auth-input-icon">âœ‰ï¸</span>
+                <span className="auth-input-icon">✉️</span>
                 <input type="email" placeholder="you@gmail.com" value={form.email} disabled={step === "otp"} onChange={e=>setForm(f=>({...f,email:e.target.value}))}/>
               </div>
             </div>
@@ -2275,7 +2275,7 @@ function RegisterPage() {
             <div className="auth-field">
               <label>Mobile Number</label>
               <div className="auth-input-wrap">
-                <span className="auth-input-icon">ðŸ“±</span>
+                <span className="auth-input-icon">📱</span>
                 <input inputMode="numeric" placeholder="9876543210" value={form.phone} disabled={step === "otp"} onChange={e=>setForm(f=>({...f,phone:e.target.value}))}/>
               </div>
             </div>
@@ -2286,7 +2286,7 @@ function RegisterPage() {
               <div className="auth-field">
                 <label>One Time Password</label>
                 <div className="auth-input-wrap">
-                  <span className="auth-input-icon">ðŸ”</span>
+                  <span className="auth-input-icon">🔐</span>
                   <input inputMode="numeric" maxLength="6" placeholder="Enter 6-digit OTP" value={form.otp} onChange={e=>setForm(f=>({...f,otp:e.target.value.replace(/\D/g, "")}))}/>
                 </div>
               </div>
@@ -2295,14 +2295,14 @@ function RegisterPage() {
                 <div className="auth-field">
                   <label>Create Password</label>
                   <div className="auth-input-wrap">
-                    <span className="auth-input-icon">ðŸ”’</span>
+                    <span className="auth-input-icon">🔒</span>
                     <input type="password" placeholder="Create password" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))}/>
                   </div>
                 </div>
                 <div className="auth-field">
                   <label>Confirm Password</label>
                   <div className="auth-input-wrap">
-                    <span className="auth-input-icon">âœ…</span>
+                    <span className="auth-input-icon">✅</span>
                     <input type="password" placeholder="Confirm password" value={form.confirm} onChange={e=>setForm(f=>({...f,confirm:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&verifyOtp()}/>
                   </div>
                 </div>
@@ -2311,10 +2311,10 @@ function RegisterPage() {
           )}
 
           {step === "details" ? (
-            <button className="auth-submit" onClick={sendOtp} disabled={loading}>{loading?"Sending OTPâ€¦":"Send OTP"}</button>
+            <button className="auth-submit" onClick={sendOtp} disabled={loading}>{loading?"Sending OTP…":"Send OTP"}</button>
           ) : (
             <>
-              <button className="auth-submit" onClick={verifyOtp} disabled={loading}>{loading?"Creating accountâ€¦":"Verify OTP & Create Password"}</button>
+              <button className="auth-submit" onClick={verifyOtp} disabled={loading}>{loading?"Creating account…":"Verify OTP & Create Password"}</button>
               <div className="auth-row" style={{marginTop:"1rem",marginBottom:0}}>
                 <button className="auth-link" onClick={() => { setStep("details"); setForm(f=>({...f,otp:"",password:"",confirm:""})); setDevOtp(""); }}>Change details</button>
                 <button className="auth-link" onClick={sendOtp} disabled={loading}>Resend OTP</button>
@@ -2329,12 +2329,12 @@ function RegisterPage() {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   ADMIN â€” PRODUCT FORM MODAL
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* ═══════════════════════════════════════════════════════════
+   ADMIN — PRODUCT FORM MODAL
+═══════════════════════════════════════════════════════════ */
 function ProductFormModal({product, onClose, onSaved}) {
   const toast = useContext(ToastCtx);
-  const [form, setForm] = useState(product || {name:"",description:"",emoji:"ðŸŒ¿",category:"Vegetable",price:"",unit:"kg",stock:"",available:true,featured:false,quantity_options:[100,250,500,1000],purchase_options:[]});
+  const [form, setForm] = useState(product || {name:"",description:"",emoji:"🌿",category:"Vegetable",price:"",unit:"kg",stock:"",available:true,featured:false,quantity_options:[100,250,500,1000],purchase_options:[]});
   const [quantityOptionsText, setQuantityOptionsText] = useState(quantityOptionsToText(product?.quantity_options || defaultQuantityOptionsForUnit(product?.unit || "kg")));
   const [purchaseOptionsText, setPurchaseOptionsText] = useState(purchaseOptionsToText(product?.purchase_options || []));
   const [loading, setLoading] = useState(false);
@@ -2394,10 +2394,10 @@ function ProductFormModal({product, onClose, onSaved}) {
         });
         setImgUploading(false);
       } else if (!imgPreview && productImageSrc(product)) {
-        // Image was removed â€” delete it
+        // Image was removed — delete it
         await apiFetch(`/products/${product.id}/image`, {method:"DELETE"});
       }
-      toast(product ? "Product updated âœ“" : "Product created âœ“");
+      toast(product ? "Product updated ✓" : "Product created ✓");
       onSaved();
     } catch(e) { setErr(e.message); }
     setImgUploading(false);
@@ -2418,7 +2418,7 @@ function ProductFormModal({product, onClose, onSaved}) {
               {imgPreview
                 ? <img src={imgPreview} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                 : <div style={{textAlign:"center",color:"var(--muted)"}}>
-                    <div style={{fontSize:"1.8rem",marginBottom:4}}>ðŸ“·</div>
+                    <div style={{fontSize:"1.8rem",marginBottom:4}}>📷</div>
                     <div style={{fontSize:".68rem",fontWeight:600}}>Click to upload</div>
                   </div>}
             </div>
@@ -2428,7 +2428,7 @@ function ProductFormModal({product, onClose, onSaved}) {
                 {imgPreview ? "Change Image" : "Upload Image"}
               </button>
               {imgPreview && <button className="btn btn-danger" style={{fontSize:".8rem",padding:".4rem .9rem",marginLeft:".5rem"}} onClick={removeImg}>Remove</button>}
-              <p style={{fontSize:".72rem",color:"var(--muted)",marginTop:".4rem",lineHeight:1.4}}>JPG, PNG, WebP Â· Max 5MB<br/>If no image, the emoji will show instead.</p>
+              <p style={{fontSize:".72rem",color:"var(--muted)",marginTop:".4rem",lineHeight:1.4}}>JPG, PNG, WebP · Max 5MB<br/>If no image, the emoji will show instead.</p>
             </div>
           </div>
         </div>
@@ -2437,7 +2437,7 @@ function ProductFormModal({product, onClose, onSaved}) {
           <div className="field" style={{gridColumn:"1/-1"}}><label>Product Name *</label><input placeholder="e.g. Alphonso Mangoes" value={form.name} onChange={e=>f("name")(e.target.value)}/></div>
         </div>
         <div className="field-row">
-          <div className="field"><label>Emoji (fallback)</label><input placeholder="ðŸŒ¿" value={form.emoji} onChange={e=>f("emoji")(e.target.value)}/></div>
+          <div className="field"><label>Emoji (fallback)</label><input placeholder="🌿" value={form.emoji} onChange={e=>f("emoji")(e.target.value)}/></div>
           <div className="field"><label>Category *</label><select id="productCategory" required value={form.category} onChange={e=>f("category")(e.target.value)}>
             <option value="">Select category</option>
             <option value="fruit">Fruit</option>
@@ -2445,8 +2445,8 @@ function ProductFormModal({product, onClose, onSaved}) {
           </select></div>
         </div>
         <div className="field-row">
-          <div className="field"><label>Price (â‚¹ per kg/dozen/bunch) *</label><input type="number" min="0" placeholder="0.00" value={form.price} onChange={e=>f("price")(e.target.value)}/></div>
-          <div className="field"><label>Unit *</label><input placeholder="kg, bunch, dozenâ€¦" value={form.unit} onChange={e=>f("unit")(e.target.value)}/></div>
+          <div className="field"><label>Price (₹ per kg/dozen/bunch) *</label><input type="number" min="0" placeholder="0.00" value={form.price} onChange={e=>f("price")(e.target.value)}/></div>
+          <div className="field"><label>Unit *</label><input placeholder="kg, bunch, dozen…" value={form.unit} onChange={e=>f("unit")(e.target.value)}/></div>
         </div>
         <div className="field"><label>Stock *</label><input type="number" min="0" step="0.01" value={form.stock} onChange={e=>f("stock")(e.target.value)}/></div>
         <div className="field">
@@ -2471,7 +2471,7 @@ function ProductFormModal({product, onClose, onSaved}) {
             Leave blank to derive from the dropdown values. Multiplier is the stock unit consumed per item.
           </div>
         </div>
-        <div className="field"><label>Description</label><textarea placeholder="Short description of the productâ€¦" value={form.description} onChange={e=>f("description")(e.target.value)}/></div>
+        <div className="field"><label>Description</label><textarea placeholder="Short description of the product…" value={form.description} onChange={e=>f("description")(e.target.value)}/></div>
         <div className="flex gap-3 mt-1">
           <label className="toggle-label"><Toggle on={form.available} onChange={f("available")}/> Available</label>
           <label className="toggle-label"><Toggle on={form.featured} onChange={f("featured")}/> Featured</label>
@@ -2479,7 +2479,7 @@ function ProductFormModal({product, onClose, onSaved}) {
         <div className="modal-footer">
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={save} disabled={loading||imgUploading}>
-            {imgUploading?"Uploading imageâ€¦":loading?"Savingâ€¦":"Save Product"}
+            {imgUploading?"Uploading image…":loading?"Saving…":"Save Product"}
           </button>
         </div>
       </div>
@@ -2487,9 +2487,9 @@ function ProductFormModal({product, onClose, onSaved}) {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    ADMIN PAGE
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 function DeliveryPartnerPage() {
   const toast = useContext(ToastCtx);
   const [partner, setPartner] = useState(() => {
@@ -2520,7 +2520,7 @@ function DeliveryPartnerPage() {
       localStorage.setItem("delivery_token", data.token);
       localStorage.setItem("delivery_partner", JSON.stringify(data.partner));
       setPartner(data.partner);
-      toast(`Welcome, ${data.partner.name} âœ“`);
+      toast(`Welcome, ${data.partner.name} ✓`);
       loadOrders(data.partner);
     } catch (e) {
       toast(e.message, "error");
@@ -2575,7 +2575,7 @@ function DeliveryPartnerPage() {
         method:"POST",
         body: JSON.stringify({amount, reason:"Manual restock from admin panel"})
       });
-      toast(`${product.name} restocked by ${amount} kg âœ“`);
+      toast(`${product.name} restocked by ${amount} kg ✓`);
       loadProducts(); loadStats(); loadLowStock();
     } catch(e) { toast(e.message, "error"); }
   };
@@ -2593,7 +2593,7 @@ function DeliveryPartnerPage() {
         method: "PUT",
         body: JSON.stringify({ status })
       });
-      toast("Order updated âœ“");
+      toast("Order updated ✓");
       loadOrders(partner);
     } catch (e) {
       toast(e.message, "error");
@@ -2638,7 +2638,7 @@ function DeliveryPartnerPage() {
       }
     );
 
-    toast("Live tracking started âœ“");
+    toast("Live tracking started ✓");
   };
 
   const stopLiveTracking = () => {
@@ -2680,7 +2680,7 @@ function DeliveryPartnerPage() {
           </div>
 
           <button className="btn btn-primary btn-full" onClick={loginDelivery} disabled={loginLoading}>
-            {loginLoading ? "Logging inâ€¦" : "Login"}
+            {loginLoading ? "Logging in…" : "Login"}
           </button>
 
           <p className="text-xs text-muted mt-2">
@@ -2705,11 +2705,11 @@ function DeliveryPartnerPage() {
         Refresh Orders
       </button>
 
-      {loading && <p>Loading assigned ordersâ€¦</p>}
+      {loading && <p>Loading assigned orders…</p>}
 
       {!loading && orders.length === 0 && (
         <div className="empty-state">
-          <div className="empty-state-icon">ðŸšš</div>
+          <div className="empty-state-icon">🚚</div>
           <h3>No assigned orders</h3>
         </div>
       )}
@@ -2719,24 +2719,24 @@ function DeliveryPartnerPage() {
           <div className="order-hd">
             <div>
               <div className="order-id-text">Order #{o.id.slice(-8).toUpperCase()}</div>
-              <div className="order-meta">{o.user_name} Â· â‚¹{o.total}</div>
+              <div className="order-meta">{o.user_name} · ₹{o.total}</div>
             </div>
             <StatusBadge status={o.status}/>
           </div>
 
-          <p className="text-sm mb-1">ðŸ“ {o.address}</p>
-          <p className="text-sm mb-1">ðŸ“ž {o.phone}</p>
+          <p className="text-sm mb-1">📍 {o.address}</p>
+          <p className="text-sm mb-1">📞 {o.phone}</p>
 
           {o.notes && (
             <div style={{background:"var(--cream)",borderRadius:10,padding:".6rem .75rem",fontSize:".8rem",marginBottom:".75rem"}}>
-              ðŸ“ {o.notes}
+              📝 {o.notes}
             </div>
           )}
 
           <div className="flex gap-1 flex-wrap mb-2">
             {o.items?.slice(0,5).map(i => (
               <span key={i.product_id} className="chip">
-                {i.emoji} {i.name} Ã— {i.quantity} {i.selected_weight ? getSelectionLabel(i, i.selected_weight, true) : getUnitBaseLabel(i.unit)}
+                {i.emoji} {i.name} × {i.quantity} {i.selected_weight ? getSelectionLabel(i, i.selected_weight, true) : getUnitBaseLabel(i.unit)}
               </span>
             ))}
             {o.items?.length > 5 && <span className="chip">+{o.items.length - 5} more</span>}
@@ -2744,7 +2744,7 @@ function DeliveryPartnerPage() {
 
           {trackingOrderId === o.id && (
             <div style={{background:"#ecfdf5",border:"1px solid #86efac",borderRadius:12,padding:".7rem .85rem",marginBottom:".75rem",fontSize:".82rem",color:"#15803d"}}>
-              ðŸ“¡ Live location sharing is ON
+              📡 Live location sharing is ON
               {lastLocationUpdate && <div className="text-xs" style={{marginTop:".2rem"}}>Last sent: {new Date(lastLocationUpdate).toLocaleTimeString("en-IN")}</div>}
             </div>
           )}
@@ -2948,7 +2948,7 @@ function AdminPage() {
       if (AudioCtx && !audioCtxRef.current) audioCtxRef.current = new AudioCtx();
       if (audioCtxRef.current?.state === "suspended") await audioCtxRef.current.resume();
     } catch (e) {}
-    toast("New order sound alerts enabled âœ“");
+    toast("New order sound alerts enabled ✓");
   };
 
   const loadStats = () => {
@@ -2976,7 +2976,7 @@ function AdminPage() {
         const newOrders = data.filter(o => !knownOrderIdsRef.current.has(o.id));
 
         if (initialOrdersLoadedRef.current && newOrders.length > 0) {
-          toast(`${newOrders.length} new order${newOrders.length > 1 ? "s" : ""} received ðŸ›’`);
+          toast(`${newOrders.length} new order${newOrders.length > 1 ? "s" : ""} received 🛒`);
           playNewOrderAlert();
         }
 
@@ -3016,7 +3016,7 @@ function AdminPage() {
         method:"POST",
         body: JSON.stringify({amount, reason:"Manual restock from admin panel"})
       });
-      toast(`${product.name} restocked by ${amount} kg âœ“`);
+      toast(`${product.name} restocked by ${amount} kg ✓`);
       loadProducts(); loadStats(); loadLowStock();
     } catch(e) { toast(e.message, "error"); }
   };
@@ -3029,7 +3029,7 @@ function AdminPage() {
   };
 
   const updateStatus = async (oid, status) => {
-    try { const o = await apiFetch(`/orders/${oid}/status`, {method:"PUT", body:JSON.stringify({status})}); setOrders(prev => prev.map(x => x.id===oid ? o : x)); setSelOrder(o); toast("Status updated âœ“"); }
+    try { const o = await apiFetch(`/orders/${oid}/status`, {method:"PUT", body:JSON.stringify({status})}); setOrders(prev => prev.map(x => x.id===oid ? o : x)); setSelOrder(o); toast("Status updated ✓"); }
     catch(e) { toast(e.message, "error"); }
   };
 
@@ -3041,29 +3041,34 @@ function AdminPage() {
       });
       setOrders(prev => prev.map(x => x.id===oid ? o : x));
       setSelOrder(o);
-      toast("Delivery partner assigned âœ“");
+      toast("Delivery partner assigned ✓");
     } catch(e) {
       toast(e.message, "error");
     }
   };
 
-  const navItems = [["dashboard","ðŸ“Š","Dashboard"],["products","ðŸ¥¦","Products"],["orders","ðŸ“¦","Orders"],["coupons","%","Coupons"]];
+  const navItems = [
+    ["dashboard", "D", "Dashboard"],
+    ["products", "P", "Products"],
+    ["orders", "O", "Orders"],
+    ["coupons", "%", "Coupons"]
+  ];
   const ORDER_STATUSES = ["pending","confirmed","out_for_delivery","delivered","cancelled"];
   const DELIVERY_PARTNERS = ["", "Amar", "Nikhil", "Dhirendra"];
 
   return (
     <div className="admin-layout">
       <div className="admin-sidebar">
-        <div className="admin-sidebar-title">ðŸŒ¿ Admin Panel</div>
+        <div className="admin-sidebar-title">Admin Panel</div>
         <div className="admin-sidebar-inner">
           {navItems.map(([id, icon, label]) => (
             <button key={id} className={`admin-nav-btn ${tab===id?"active":""}`} onClick={() => setTab(id)}>
               <span>{icon}</span> {label}
             </button>
           ))}
-          <button className="admin-nav-btn" onClick={() => nav("shop")}><span>ðŸ›’</span> Shop</button>
+          <button className="admin-nav-btn" onClick={() => nav("shop")}><span>S</span> Shop</button>
           <button className="admin-nav-btn" onClick={() => { logout(); nav("home"); }}>
-            ðŸšª Logout
+            Logout
           </button>
         </div>
       </div>
@@ -3090,21 +3095,21 @@ function AdminPage() {
 
             <div className="stat-grid">
               {[
-                ["ðŸ“¦",stats.total_orders,"Total Orders"],
-                ["ðŸ†•",stats.today_orders,"Today Orders"],
-                ["â³",stats.pending_orders,"Pending"],
-                ["ðŸšš",stats.active_delivery_orders,"Active Deliveries"],
-                ["âœ…",stats.delivered_orders,"Delivered"],
-                ["â‚¹",stats.revenue,"Total Revenue"],
-                ["ðŸ’°",stats.today_revenue,"Today Revenue"],
-                ["ðŸ¥¦",stats.available_products,"Available Items"],
-                ["âš ï¸",stats.low_stock_products,"Low Stock"],
-                ["ðŸš«",stats.out_of_stock_products,"Out of Stock"],
-                ["ðŸ‘¥",stats.total_users,"Customers"]
+                ["Orders", stats.total_orders, "Total Orders"],
+                ["Today", stats.today_orders, "Today Orders"],
+                ["Pending", stats.pending_orders, "Pending"],
+                ["Delivery", stats.active_delivery_orders, "Active Deliveries"],
+                ["Done", stats.delivered_orders, "Delivered"],
+                ["Rs", stats.revenue, "Total Revenue"],
+                ["Rs", stats.today_revenue, "Today Revenue"],
+                ["Items", stats.available_products, "Available Items"],
+                ["Low", stats.low_stock_products, "Low Stock"],
+                ["Out", stats.out_of_stock_products, "Out of Stock"],
+                ["Users", stats.total_users, "Customers"]
               ].map(([icon,val,label]) => (
                 <div key={label} className="stat-card">
                   <div className="stat-icon">{icon}</div>
-                  <div className="stat-val">{val ?? "â€¦"}</div>
+                  <div className="stat-val">{val ?? "..."}</div>
                   <div className="stat-label">{label}</div>
                 </div>
               ))}
@@ -3163,7 +3168,7 @@ function AdminPage() {
                     <tr key={p.name}>
                       <td>{p.name}</td>
                       <td>{p.quantity}</td>
-                      <td>â‚¹{p.revenue}</td>
+                      <td>Rs {p.revenue}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -3174,13 +3179,13 @@ function AdminPage() {
               <div style={{background:"var(--white)",border:"1.5px solid var(--border)",borderRadius:"var(--r)",padding:"1rem"}}>
                 <div className="flex justify-between items-center mb-2">
                   <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.35rem"}}>Recent Orders</h3>
-                  <button className="section-link" onClick={() => setTab("orders")}>View all â†’</button>
+                  <button className="section-link" onClick={() => setTab("orders")}>View all →</button>
                 </div>
                 {orders.slice(0,5).map(o => (
                   <div key={o.id} className="flex justify-between items-center" style={{padding:".65rem 0",borderBottom:"1px solid var(--border)",gap:".75rem"}}>
                     <div>
-                      <div className="fw-700">#{o.id.slice(-8).toUpperCase()} Â· â‚¹{o.total}</div>
-                      <div className="text-xs text-muted">{o.user_name} Â· {o.items?.length || 0} item{o.items?.length===1?"":"s"}</div>
+                      <div className="fw-700">#{o.id.slice(-8).toUpperCase()} · ₹{o.total}</div>
+                      <div className="text-xs text-muted">{o.user_name} · {o.items?.length || 0} item{o.items?.length===1?"":"s"}</div>
                     </div>
                     <StatusBadge status={o.status}/>
                   </div>
@@ -3195,8 +3200,8 @@ function AdminPage() {
                 </div>
                 {orders.filter(o => o.status === "out_for_delivery").slice(0,5).map(o => (
                   <div key={o.id} style={{padding:".65rem 0",borderBottom:"1px solid var(--border)"}}>
-                    <div className="fw-700">ðŸšš {o.delivery_partner || "Unassigned"}</div>
-                    <div className="text-xs text-muted">#{o.id.slice(-8).toUpperCase()} Â· {o.user_name}</div>
+                    <div className="fw-700">🚚 {o.delivery_partner || "Unassigned"}</div>
+                    <div className="text-xs text-muted">#{o.id.slice(-8).toUpperCase()} · {o.user_name}</div>
                     {o.delivery_last_updated && <div className="text-xs text-muted">Last update: {new Date(o.delivery_last_updated).toLocaleTimeString("en-IN")}</div>}
                   </div>
                 ))}
@@ -3206,12 +3211,12 @@ function AdminPage() {
               <div style={{background:"var(--white)",border:"1.5px solid var(--border)",borderRadius:"var(--r)",padding:"1rem"}}>
                 <div className="flex justify-between items-center mb-2">
                   <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"1.35rem"}}>Low Stock Items</h3>
-                  <button className="section-link" onClick={() => setTab("products")}>Manage â†’</button>
+                  <button className="section-link" onClick={() => setTab("products")}>Manage →</button>
                 </div>
                 {lowStock.slice(0,6).map(p => (
                   <div key={p.id} className="flex justify-between items-center" style={{padding:".65rem 0",borderBottom:"1px solid var(--border)",gap:".75rem"}}>
                     <div>
-                      <div className="fw-700">{p.emoji || "ðŸŒ¿"} {p.name}</div>
+                      <div className="fw-700">{p.emoji || "🌿"} {p.name}</div>
                       <div className="text-xs text-muted">Stock: {Number(p.stock || 0).toFixed(2)} {getUnitBaseLabel(p.unit)}</div>
                     </div>
                     <button className="btn btn-ghost" style={{padding:".3rem .7rem",fontSize:".75rem"}} onClick={() => restockProduct(p)}>Restock</button>
@@ -3223,7 +3228,7 @@ function AdminPage() {
 
             <div className="flex gap-2 flex-wrap mt-3">
               <button className="btn btn-primary" onClick={() => { setEditProduct(false); }}>+ Add Product</button>
-              <button className="btn btn-ghost" onClick={() => setTab("orders")}>Manage Orders â†’</button>
+              <button className="btn btn-ghost" onClick={() => setTab("orders")}>Manage Orders →</button>
             </div>
           </>
         )}
@@ -3235,7 +3240,7 @@ function AdminPage() {
               <div><h1 className="page-title">Products</h1><p className="text-muted text-sm">{products.length} total</p></div>
               <button className="btn btn-primary" onClick={() => setEditProduct(false)}>+ New Product</button>
             </div>
-            {loadingP ? <div className="empty-state"><p>Loadingâ€¦</p></div> : (
+            {loadingP ? <div className="empty-state"><p>Loading…</p></div> : (
               <div className="table-wrap">
                 <table className="table">
                   <thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead>
@@ -3246,17 +3251,17 @@ function AdminPage() {
   {productImageSrc(p)
     ? <img src={productImageSrc(p)} alt={p.name} style={{width:36,height:36,borderRadius:8,objectFit:"cover",flexShrink:0}}/>
     : <span style={{fontSize:"1.3rem",width:36,textAlign:"center",flexShrink:0}}>{p.emoji}</span>}
-  <div><div style={{fontWeight:600}}>{p.name}</div><div className="text-xs text-muted">{p.description?.slice(0,40)}{p.description?.length>40?"â€¦":""}</div></div>
+  <div><div style={{fontWeight:600}}>{p.name}</div><div className="text-xs text-muted">{p.description?.slice(0,40)}{p.description?.length>40?"…":""}</div></div>
 </div></td>
                         <td><span className="chip">{p.category}</span></td>
-                        <td className="fw-700 text-leaf">â‚¹{p.price}/{p.unit}</td>
+                        <td className="fw-700 text-leaf">₹{p.price}/{p.unit}</td>
                         <td>
                           <div className="fw-700">{Number(p.stock || 0).toFixed(2)} {getUnitBaseLabel(p.unit)}</div>
                           <div className="mt-1">{stockBadge(p)}</div>
                         </td>
                         <td>
                           <span className={`pill ${p.available?"pill-green":"pill-red"}`}>{p.available?"Active":"Off"}</span>
-                          {p.featured && <span className="pill" style={{background:"#fef9c3",color:"#92400e",marginLeft:4}}>â­</span>}
+                          {p.featured && <span className="pill" style={{background:"#fef9c3",color:"#92400e",marginLeft:4}}>⭐</span>}
                         </td>
                         <td>
                           <div className="flex gap-1">
@@ -3291,7 +3296,7 @@ function AdminPage() {
                 ))}
               </div>
             </div>
-            {loadingO ? <div className="empty-state"><p>Loadingâ€¦</p></div> : (
+            {loadingO ? <div className="empty-state"><p>Loading…</p></div> : (
               <div className="table-wrap">
                 <table className="table">
                   <thead><tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Delivery</th><th>Status</th><th>Action</th></tr></thead>
@@ -3301,10 +3306,10 @@ function AdminPage() {
                         <td style={{fontFamily:"monospace",fontWeight:700}}>#{o.id.slice(-8).toUpperCase()}</td>
                         <td><div style={{fontWeight:600}}>{o.user_name}</div><div className="text-xs text-muted">{o.user_email}</div></td>
                         <td>{o.items?.length} item{o.items?.length!==1?"s":""}</td>
-                        <td className="fw-700 text-leaf">â‚¹{o.total}</td>
+                        <td className="fw-700 text-leaf">₹{o.total}</td>
                         <td>
                           <div className="fw-700">{o.payment_status === "paid" ? "Paid" : "Pending"}</div>
-                          <div className="text-xs text-muted">{o.payment || "â€”"}</div>
+                          <div className="text-xs text-muted">{o.payment || "—"}</div>
                           {o.razorpay_payment_id && <div className="text-xs text-muted" style={{fontFamily:"monospace"}}>{o.razorpay_payment_id}</div>}
                         </td>
                         <td onClick={e=>e.stopPropagation()}>
@@ -3376,17 +3381,17 @@ function AdminPage() {
               <h2 className="modal-title" style={{margin:0}}>Order #{selOrder.id.slice(-8).toUpperCase()}</h2>
               <StatusBadge status={selOrder.status}/>
             </div>
-            <p className="text-sm text-muted mb-2">{selOrder.user_name} Â· {selOrder.user_email}</p>
+            <p className="text-sm text-muted mb-2">{selOrder.user_name} · {selOrder.user_email}</p>
             <div style={{background:"var(--cream)",borderRadius:10,padding:".65rem",fontSize:".82rem",marginBottom:"1rem"}}>
-              ðŸ’³ Payment: <strong>{selOrder.payment_status === "paid" ? "Paid Online" : "Pending / COD"}</strong>
+              💳 Payment: <strong>{selOrder.payment_status === "paid" ? "Paid Online" : "Pending / COD"}</strong>
               {selOrder.razorpay_payment_id && <><br/>Payment ID: <span style={{fontFamily:"monospace"}}>{selOrder.razorpay_payment_id}</span></>}
             </div>
-            <p className="text-sm mb-2">ðŸ“ {selOrder.address}</p>
+            <p className="text-sm mb-2">📍 {selOrder.address}</p>
             {selOrder.delivery_maps_url && <div className="flex gap-1 flex-wrap mb-2">
               <a className="btn btn-ghost" target="_blank" href={selOrder.delivery_maps_url}>Open pin</a>
               <a className="btn btn-primary" target="_blank" href={`https://www.google.com/maps/dir/?api=1&destination=${selOrder.delivery_lat},${selOrder.delivery_lng}&travelmode=driving`}>Start delivery route</a>
             </div>}
-            <p className="text-sm mb-2">ðŸ“ž {selOrder.phone}</p>
+            <p className="text-sm mb-2">📞 {selOrder.phone}</p>
             <div className="field mb-3">
               <label>Assign Delivery Partner</label>
               <select
@@ -3396,13 +3401,13 @@ function AdminPage() {
                 {DELIVERY_PARTNERS.map(p => <option key={p || "none-modal"} value={p}>{p || "Select delivery partner"}</option>)}
               </select>
             </div>
-            {selOrder.notes && <div style={{background:"var(--cream)",borderRadius:10,padding:".65rem",fontSize:".82rem",marginBottom:"1rem"}}>ðŸ“ {selOrder.notes}</div>}
+            {selOrder.notes && <div style={{background:"var(--cream)",borderRadius:10,padding:".65rem",fontSize:".82rem",marginBottom:"1rem"}}>📝 {selOrder.notes}</div>}
             {selOrder.items?.map(i => (
               <div key={i.product_id} className="flex justify-between text-sm mb-1 pb-1" style={{borderBottom:"1px solid var(--border)"}}>
-                <span>{i.emoji} {i.name} Ã— {i.quantity} {i.unit}</span><span className="fw-700">â‚¹{i.line_total}</span>
+                <span>{i.emoji} {i.name} × {i.quantity} {i.unit}</span><span className="fw-700">₹{i.line_total}</span>
               </div>
             ))}
-            <div className="flex justify-between fw-700 mt-2"><span>Total</span><span style={{color:"var(--leaf)"}}>â‚¹{selOrder.total}</span></div>
+            <div className="flex justify-between fw-700 mt-2"><span>Total</span><span style={{color:"var(--leaf)"}}>₹{selOrder.total}</span></div>
             <div className="field mt-3"><label>Update Status</label>
               <select className="form-input" value={normalizeOrderStatus(selOrder.status)} onChange={e => updateStatus(selOrder.id, e.target.value)}>
                 {ORDER_STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g," ")}</option>)}
@@ -3416,9 +3421,9 @@ function AdminPage() {
   );
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ═══════════════════════════════════════════════════════════
    APP SHELL
-â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+═══════════════════════════════════════════════════════════ */
 // Expose CSS var values for inline use in JSX
 const var_r = "var(--r)";
 const var_ink = "var(--ink)";

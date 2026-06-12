@@ -122,7 +122,7 @@ def log_exception_event(event: str, exc: Exception, **fields: Any) -> None:
         **fields,
     )
 
-# â”€â”€ Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Config ────────────────────────────────────────────────────────
 APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
 IS_PRODUCTION = APP_ENV in {"prod", "production"}
 APP_VERSION = os.getenv("APP_VERSION", "local")
@@ -213,7 +213,7 @@ if IS_PRODUCTION:
     if not CORS_ORIGINS:
         raise RuntimeError("CORS_ORIGINS must be set when APP_ENV=production")
 
-# â”€â”€ Database â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Database ──────────────────────────────────────────────────────
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, pool_pre_ping=True, connect_args=connect_args)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
@@ -263,7 +263,7 @@ class Product(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(Text, default="")
-    emoji: Mapped[str] = mapped_column(String, default="ðŸŒ¿")
+    emoji: Mapped[str] = mapped_column(String, default="🌿")
     category: Mapped[str] = mapped_column(String, nullable=False)
     price: Mapped[float] = mapped_column(Float, nullable=False)
     unit: Mapped[str] = mapped_column(String, nullable=False)
@@ -337,7 +337,7 @@ def get_db():
     finally:
         db.close()
 
-# â”€â”€ App â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── App ───────────────────────────────────────────────────────────
 app = FastAPI(title="Amar Veggies API", version="2.0.0")
 app.add_middleware(
     CORSMiddleware,
@@ -362,7 +362,7 @@ async def add_security_headers(request: Request, call_next):
         )
     return response
 
-# â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Helpers ───────────────────────────────────────────────────────
 class InMemoryRateLimiter:
     def __init__(self):
         self.requests: Dict[str, List[float]] = defaultdict(list)
@@ -710,28 +710,28 @@ def send_whatsapp_order_notification(order_data: Dict[str, Any]) -> bool:
         items_text = ""
         for item in order_data.get("items", []):
             items_text += (
-                f"â€¢ {item.get('name')} "
-                f"({item.get('selected_weight')}g Ã— {item.get('quantity')})\n"
+                f"• {item.get('name')} "
+                f"({item.get('selected_weight')}g × {item.get('quantity')})\n"
             )
 
         message_body = f"""
-ðŸ›’ *NEW ORDER RECEIVED*
+🛒 *NEW ORDER RECEIVED*
 
-ðŸ‘¤ Customer: {order_data.get('user_name')}
-ðŸ“ž Phone: {order_data.get('phone')}
+👤 Customer: {order_data.get('user_name')}
+📞 Phone: {order_data.get('phone')}
 
-ðŸ“ Address:
+📍 Address:
 {order_data.get('address')}
 
-ðŸ§º Items:
+🧺 Items:
 {items_text}
 
-ðŸ’° Total: â‚¹{order_data.get('total')}
+💰 Total: ₹{order_data.get('total')}
 
-ðŸ“ Notes:
+📝 Notes:
 {order_data.get('notes') or 'None'}
 
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+━━━━━━━━━━━━━━
 Amar Veggies
 """
 
@@ -769,7 +769,7 @@ def send_whatsapp_customer_status(order, status):
     extra_message = ""
 
     if status == "confirmed":
-        extra_message = "\n\nðŸ§º Your groceries are being prepared."
+        extra_message = "\n\n🧺 Your groceries are being prepared."
 
     elif status == "out_for_delivery":
         partner = order.delivery_partner or "our delivery partner"
@@ -778,20 +778,20 @@ def send_whatsapp_customer_status(order, status):
 
         extra_message = f"""
 
-ðŸšš Your order is on the way with {partner}.
+🚚 Your order is on the way with {partner}.
 
-ðŸ“ Track location:
+📍 Track location:
     {tracking_link}
     """
 
     elif status == "delivered":
-        extra_message = "\n\nâœ… Delivered successfully. Thank you for shopping with Amar Veggies!"
+        extra_message = "\n\n✅ Delivered successfully. Thank you for shopping with Amar Veggies!"
 
     try:
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
         message = client.messages.create(
-            body=f"""ðŸŒ¿ Amar Veggies Update
+            body=f"""🌿 Amar Veggies Update
 
 Your order #{order.id[-8:].upper()} is now {status_text}.{extra_message}
 
@@ -1061,7 +1061,7 @@ def get_user_by_email_or_phone(db: Session, email: Optional[str], phone: Optiona
         return db.query(User).filter(User.phone == phone).first()
     return None
 
-# â”€â”€ Security â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Security ──────────────────────────────────────────────────────
 pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer = HTTPBearer(auto_error=False)
 razorpay_client: Optional[Any] = None
@@ -1132,7 +1132,7 @@ def require_admin(user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str,
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
 
-# â”€â”€ Schemas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Schemas ───────────────────────────────────────────────────────
 class RegisterIn(BaseModel):
     name: str
     email: str
@@ -1186,7 +1186,7 @@ class FcmTokenIn(BaseModel):
 class ProductIn(BaseModel):
     name: str
     description: Optional[str] = ""
-    emoji: Optional[str] = "ðŸŒ¿"
+    emoji: Optional[str] = "🌿"
     category: str
     price: float
     unit: str
@@ -1252,7 +1252,7 @@ class DeliveryLoginIn(BaseModel):
     phone: str
     password: str
 
-# â”€â”€ Seed Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Seed Admin ────────────────────────────────────────────────────
 def seed_admin():
     if not ADMIN_EMAIL or not ADMIN_PASSWORD:
         log_event(logging.WARNING, "seed_admin_missing_env")
@@ -1309,7 +1309,7 @@ def seed_delivery_partners():
     finally:
         db.close()
 
-# â”€â”€ Delivery Partner Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Delivery Partner Auth ───────────────────────────────────────
 @app.post("/api/delivery/login", dependencies=[Depends(rate_limit(limit=5, window_seconds=60))])
 def delivery_login(body: DeliveryLoginIn, db: Session = Depends(get_db)):
     phone = normalize_phone(body.phone)
@@ -1443,7 +1443,7 @@ def delivery_update_order_status(
 
     return model_to_dict(order)
 
-# â”€â”€ Auth â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Auth ──────────────────────────────────────────────────────────
 @app.post("/api/auth/register")
 def register(body: RegisterIn, db: Session = Depends(get_db)):
     email = normalize_email(body.email)
@@ -1795,7 +1795,7 @@ def apply_coupon(body: CouponApplyIn, db: Session = Depends(get_db)):
     data["discountAmount"] = coupon_discount_for_amount(coupon, body.orderAmount)
     return data
 
-# â”€â”€ Products â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Products ──────────────────────────────────────────────────────
 @app.get("/api/products")
 def list_products(category: Optional[str] = None, search: Optional[str] = None, featured: Optional[bool] = None, db: Session = Depends(get_db)):
     q = db.query(Product)
@@ -1824,7 +1824,7 @@ def create_product(body: ProductIn, db: Session = Depends(get_db)):
         id=str(uuid.uuid4()),
         name=p["name"],
         description=p.get("description", ""),
-        emoji=p.get("emoji", "ðŸŒ¿"),
+        emoji=p.get("emoji", "🌿"),
         category=p["category"],
         price=p["price"],
         unit=p["unit"],
@@ -1854,7 +1854,7 @@ def update_product(pid: str, body: ProductIn, db: Session = Depends(get_db)):
     purchase_options = normalize_purchase_options(p["unit"], p.get("purchase_options"), quantity_options)
     product.name = p["name"]
     product.description = p.get("description", "")
-    product.emoji = p.get("emoji", "ðŸŒ¿")
+    product.emoji = p.get("emoji", "🌿")
     product.category = p["category"]
     product.price = p["price"]
     product.unit = p["unit"]
@@ -2032,7 +2032,7 @@ def verify_payment(
         "order": model_to_dict(order),
     }
 
-# â”€â”€ Orders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Orders ────────────────────────────────────────────────────────
 ORDER_STATUSES = ["pending", "confirmed", "out_for_delivery", "delivered", "cancelled"]
 
 def cancel_pending_payment_order(order: Order, db: Session, reason: str) -> None:
@@ -2127,7 +2127,7 @@ def create_order_record(
         items_detail.append({
             "product_id": ci.product_id,
             "name": p["name"],
-            "emoji": p.get("emoji", "ðŸŒ¿"),
+            "emoji": p.get("emoji", "🌿"),
             "price": p["price"],
             "unit": p["unit"],
             "quantity": ci.quantity,
@@ -2506,7 +2506,7 @@ def assign_delivery_partner(
 
     return model_to_dict(order)
 
-# â”€â”€ Admin stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Admin stats ───────────────────────────────────────────────────
 @app.get("/api/admin/stats", dependencies=[Depends(require_admin)])
 def admin_stats(db: Session = Depends(get_db)):
     total_orders = db.query(Order).count()
@@ -2576,7 +2576,7 @@ def top_products(limit: int = 10, db: Session = Depends(get_db)):
 
     return result
 
-# â”€â”€ Analytics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Analytics ─────────────────────────────────────────────────────
 @app.get("/api/admin/analytics/payment-split", dependencies=[Depends(require_admin)])
 def payment_split(db: Session = Depends(get_db)):
     orders = db.query(Order).all()
@@ -2632,7 +2632,7 @@ def revenue_chart(days: int = 7, db: Session = Depends(get_db)):
 
     return result
 
-# â”€â”€ Health â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Health ────────────────────────────────────────────────────────
 @app.get("/api/health")
 def health():
     return {
@@ -2673,7 +2673,7 @@ def ready(db: Session = Depends(get_db)):
         "checks": checks,
     }
 
-# â”€â”€ Product images â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Product images ────────────────────────────────────────────────
 @app.post("/api/products/{pid}/image", dependencies=[Depends(require_admin)])
 async def upload_product_image(pid: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.id == pid).first()
