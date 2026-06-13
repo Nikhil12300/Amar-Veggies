@@ -22,7 +22,7 @@ npm.cmd install
 
 ```powershell
 python scripts\migrate.py
-python scripts\seed_data.py
+python -m scripts.seed_data
 ```
 
 5. Start the backend:
@@ -43,8 +43,8 @@ Backend deploy order:
 
 ```powershell
 pip install -r render-requirements.txt
-python scripts\migrate.py
-python scripts\seed_data.py
+python scripts/migrate.py
+python -m scripts.seed_data
 python server.py
 ```
 
