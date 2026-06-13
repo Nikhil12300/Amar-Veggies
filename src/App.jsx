@@ -1183,7 +1183,6 @@ function HomePage() {
           <p className="hero-sub">Handpicked seasonal fruits and vegetables delivered with care. No middlemen, just pure freshness.</p>
           <div className="hero-actions">
             <button className="btn-hero btn-hero-primary" onClick={() => nav("shop")}>Shop Now →</button>
-            <RepeatLastOrderButton />
             {installPrompt && !isInstalled && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && (
               <button className="btn-hero btn-hero-outline" onClick={installApp}>
                 📲 Install App
@@ -3678,4 +3677,3 @@ function AppInner() {
 }
 
 createRoot(document.getElementById("root")).render(<App/>);
-
