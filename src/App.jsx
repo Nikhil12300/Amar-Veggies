@@ -3099,6 +3099,256 @@ function CouponAdminForm() {
   );
 }
 
+function DeliveryPartnersAdmin({ onSaved }) {
+  const toast = useContext(ToastCtx);
+
+  const emptyForm = {
+    name: "",
+    phone: "",
+    password: "",
+    active: true
+  };
+
+  const [partners, setPartners] = useState([]);
+  const [form, setForm] = useState(emptyForm);
+  const [editing, setEditing] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const setField = key => value => {
+    setForm(prev => ({ ...prev, [key]: value }));
+  };
+
+  const loadPartners = () => {
+    setLoading(true);
+    apiFetch("/admin/delivery-partners")
+      .then(data => setPartners(Array.isArray(data) ? data : []))
+      .catch(e => toast(e.message || "Could not load delivery partners", "error"))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadPartners();
+  }, []);
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setEditing(null);
+  };
+
+  const editPartner = (partner) => {
+    setEditing(partner);
+    setForm({
+      name: partner.name || "",
+      phone: partner.phone || "",
+      password: "",
+      active: Boolean(partner.active)
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const submitPartner = async (e) => {
+    e.preventDefault();
+
+    if (!form.name.trim() || !form.phone.trim()) {
+      toast("Name and phone are required", "error");
+      return;
+    }
+
+    if (!editing && !form.password.trim()) {
+      toast("Password is required for a new delivery partner", "error");
+      return;
+    }
+
+    setSaving(true);
+
+    const payload = {
+      name: form.name.trim(),
+      phone: form.phone.trim(),
+      active: form.active
+    };
+
+    if (form.password.trim()) {
+      payload.password = form.password.trim();
+    }
+
+    try {
+      if (editing) {
+        await apiFetch(`/admin/delivery-partners/${editing.id}`, {
+          method: "PUT",
+          body: JSON.stringify(payload)
+        });
+        toast("Delivery partner updated ✓");
+      } else {
+        await apiFetch("/admin/delivery-partners", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        toast("Delivery partner added ✓");
+      }
+
+      resetForm();
+      loadPartners();
+      onSaved?.();
+    } catch (e) {
+      toast(e.message || "Could not save delivery partner", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deactivatePartner = async (partner) => {
+    if (!confirm(`Remove ${partner.name} from active delivery partners?`)) return;
+
+    try {
+      await apiFetch(`/admin/delivery-partners/${partner.id}`, {
+        method: "DELETE"
+      });
+      toast("Delivery partner removed from active list");
+      loadPartners();
+      onSaved?.();
+    } catch (e) {
+      toast(e.message || "Could not remove delivery partner", "error");
+    }
+  };
+
+  const toggleActive = async (partner) => {
+    try {
+      await apiFetch(`/admin/delivery-partners/${partner.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ active: !partner.active })
+      });
+      toast(partner.active ? "Delivery partner deactivated" : "Delivery partner activated");
+      loadPartners();
+      onSaved?.();
+    } catch (e) {
+      toast(e.message || "Could not update status", "error");
+    }
+  };
+
+  return (
+    <div>
+      <form className="admin-form-panel" onSubmit={submitPartner}>
+        <div>
+          <h1 className="page-title">Delivery Partners</h1>
+          <p className="text-muted text-sm">
+            Add, edit, activate or remove delivery partner login details.
+          </p>
+        </div>
+
+        <div className="field-row">
+          <div className="field">
+            <label>Name *</label>
+            <input
+              value={form.name}
+              onChange={e => setField("name")(e.target.value)}
+              placeholder="e.g. Nikhil"
+            />
+          </div>
+
+          <div className="field">
+            <label>Phone *</label>
+            <input
+              value={form.phone}
+              onChange={e => setField("phone")(e.target.value)}
+              placeholder="10-digit mobile number"
+            />
+          </div>
+        </div>
+
+        <div className="field-row">
+          <div className="field">
+            <label>{editing ? "New Password" : "Password *"}</label>
+            <input
+              type="password"
+              value={form.password}
+              onChange={e => setField("password")(e.target.value)}
+              placeholder={editing ? "Leave blank to keep old password" : "Set login password"}
+            />
+          </div>
+
+          <label className="toggle-row">
+            <input
+              type="checkbox"
+              checked={form.active}
+              onChange={e => setField("active")(e.target.checked)}
+            />
+            <span>Active partner</span>
+          </label>
+        </div>
+
+        <div className="flex gap-1 flex-wrap">
+          <button className="btn btn-primary" type="submit" disabled={saving}>
+            {saving ? "Saving..." : editing ? "Update Partner" : "Add Partner"}
+          </button>
+
+          {editing && (
+            <button className="btn btn-ghost" type="button" onClick={resetForm}>
+              Cancel Edit
+            </button>
+          )}
+        </div>
+      </form>
+
+      <div className="table-wrap mt-3">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Phone</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan="5">Loading delivery partners...</td>
+              </tr>
+            ) : partners.length === 0 ? (
+              <tr>
+                <td colSpan="5">No delivery partners added yet.</td>
+              </tr>
+            ) : partners.map(partner => (
+              <tr key={partner.id}>
+                <td><strong>{partner.name}</strong></td>
+                <td>{partner.phone}</td>
+                <td>
+                  <span className={`pill ${partner.active ? "pill-green" : "pill-red"}`}>
+                    {partner.active ? "Active" : "Inactive"}
+                  </span>
+                </td>
+                <td>
+                  {partner.created_at
+                    ? new Date(partner.created_at).toLocaleDateString("en-IN")
+                    : "-"}
+                </td>
+                <td>
+                  <div className="flex gap-1 flex-wrap">
+                    <button className="btn btn-ghost" type="button" onClick={() => editPartner(partner)}>
+                      Edit
+                    </button>
+
+                    <button className="btn btn-ghost" type="button" onClick={() => toggleActive(partner)}>
+                      {partner.active ? "Deactivate" : "Activate"}
+                    </button>
+
+                    <button className="btn btn-danger" type="button" onClick={() => deactivatePartner(partner)}>
+                      Remove
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function AdminPage() {
   const {user} = useContext(AuthCtx);
   const {nav} = useContext(RouterCtx);
@@ -3114,6 +3364,7 @@ function AdminPage() {
   });
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [deliveryPartners, setDeliveryPartners] = useState([]);
   const [lowStock, setLowStock] = useState([]);
   const [editProduct, setEditProduct] = useState(null); // null=closed, false=new, obj=edit
   const [loadingP, setLoadingP] = useState(false);
@@ -3177,6 +3428,11 @@ function AdminPage() {
     console.error("PRODUCT LOAD ERROR:", e);
     alert("PRODUCT ERROR: " + e.message);
   }).finally(()=>setLoadingP(false)); };
+  const loadDeliveryPartners = () => {
+    apiFetch("/admin/delivery-partners")
+      .then(data => setDeliveryPartners(Array.isArray(data) ? data.filter(p => p.active) : []))
+      .catch(() => setDeliveryPartners([]));
+  };
   const loadOrders = ({background = false} = {}) => {
     if (!background) setLoadingO(true);
     return apiFetch("/orders")
@@ -3197,7 +3453,13 @@ function AdminPage() {
       .finally(()=>{ if (!background) setLoadingO(false); });
   };
 
-  useEffect(() => { loadStats(); loadProducts(); loadOrders(); loadLowStock(); }, []);
+  useEffect(() => {
+    loadStats();
+    loadProducts();
+    loadOrders();
+    loadLowStock();
+    loadDeliveryPartners();
+  }, []);
 
   useEffect(() => {
     if (!autoRefresh) return;
@@ -3260,10 +3522,14 @@ function AdminPage() {
     ["dashboard", "D", "Dashboard"],
     ["products", "P", "Products"],
     ["orders", "O", "Orders"],
+    ["delivery-partners", "🚚", "Delivery Partners"],
     ["coupons", "%", "Coupons"]
   ];
   const ORDER_STATUSES = ["pending","confirmed","out_for_delivery","delivered","cancelled"];
-  const DELIVERY_PARTNERS = ["", "Amar", "Nikhil", "Dhirendra"];
+  const DELIVERY_PARTNERS = [
+    "",
+    ...deliveryPartners.map(partner => partner.name)
+  ];
 
   return (
     <div className="admin-layout">
@@ -3488,6 +3754,9 @@ function AdminPage() {
             )}
           </>
         )}
+
+        {/* DELIVERY PARTNERS */}
+        {tab === "delivery-partners" && <DeliveryPartnersAdmin onSaved={loadDeliveryPartners} />}
 
         {/* COUPONS */}
         {tab === "coupons" && <CouponAdminForm />}

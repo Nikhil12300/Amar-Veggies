@@ -1252,6 +1252,18 @@ class DeliveryLoginIn(BaseModel):
     phone: str
     password: str
 
+class DeliveryPartnerCreateIn(BaseModel):
+    name: str
+    phone: str
+    password: str
+    active: bool = True
+
+class DeliveryPartnerUpdateIn(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    password: Optional[str] = None
+    active: Optional[bool] = None
+
 # ── Seed Admin ────────────────────────────────────────────────────
 def seed_admin():
     if not ADMIN_EMAIL or not ADMIN_PASSWORD:
@@ -2571,6 +2583,146 @@ def assign_delivery_partner(
 
     return model_to_dict(order)
 
+@app.get("/api/admin/delivery-partners")
+def admin_list_delivery_partners(
+    admin: Dict[str, Any] = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    rows = (
+        db.query(DeliveryPartner)
+        .order_by(DeliveryPartner.active.desc(), DeliveryPartner.name.asc())
+        .all()
+    )
+
+    partners = []
+    for p in rows:
+        partners.append({
+            "id": p.id,
+            "name": p.name,
+            "phone": p.phone,
+            "active": bool(p.active),
+            "created_at": p.created_at
+        })
+
+    return partners
+
+
+@app.post("/api/admin/delivery-partners")
+def admin_create_delivery_partner(
+    body: DeliveryPartnerCreateIn,
+    admin: Dict[str, Any] = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    name = body.name.strip()
+    phone = normalize_phone(body.phone)
+    password = body.password.strip()
+
+    if not name:
+        raise HTTPException(400, "Delivery partner name is required")
+
+    if not phone:
+        raise HTTPException(400, "Enter a valid mobile number")
+
+    if len(password) < 4:
+        raise HTTPException(400, "Password must be at least 4 characters")
+
+    existing = db.query(DeliveryPartner).filter(DeliveryPartner.phone == phone).first()
+    if existing:
+        raise HTTPException(400, "A delivery partner with this phone already exists")
+
+    partner = DeliveryPartner(
+        id=str(uuid.uuid4()),
+        name=name,
+        phone=phone,
+        password=hash_password(password),
+        active=1 if body.active else 0,
+        created_at=now_iso()
+    )
+
+    db.add(partner)
+    db.commit()
+    db.refresh(partner)
+
+    return {
+        "id": partner.id,
+        "name": partner.name,
+        "phone": partner.phone,
+        "active": bool(partner.active),
+        "created_at": partner.created_at
+    }
+
+
+@app.put("/api/admin/delivery-partners/{partner_id}")
+def admin_update_delivery_partner(
+    partner_id: str,
+    body: DeliveryPartnerUpdateIn,
+    admin: Dict[str, Any] = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    partner = db.query(DeliveryPartner).filter(DeliveryPartner.id == partner_id).first()
+
+    if not partner:
+        raise HTTPException(404, "Delivery partner not found")
+
+    if body.name is not None:
+        name = body.name.strip()
+        if not name:
+            raise HTTPException(400, "Delivery partner name is required")
+        partner.name = name
+
+    if body.phone is not None:
+        phone = normalize_phone(body.phone)
+        if not phone:
+            raise HTTPException(400, "Enter a valid mobile number")
+
+        duplicate = (
+            db.query(DeliveryPartner)
+            .filter(DeliveryPartner.phone == phone, DeliveryPartner.id != partner_id)
+            .first()
+        )
+        if duplicate:
+            raise HTTPException(400, "Another delivery partner already uses this phone")
+
+        partner.phone = phone
+
+    if body.password is not None and body.password.strip():
+        password = body.password.strip()
+        if len(password) < 4:
+            raise HTTPException(400, "Password must be at least 4 characters")
+        partner.password = hash_password(password)
+
+    if body.active is not None:
+        partner.active = 1 if body.active else 0
+
+    db.commit()
+    db.refresh(partner)
+
+    return {
+        "id": partner.id,
+        "name": partner.name,
+        "phone": partner.phone,
+        "active": bool(partner.active),
+        "created_at": partner.created_at
+    }
+
+
+@app.delete("/api/admin/delivery-partners/{partner_id}")
+def admin_delete_delivery_partner(
+    partner_id: str,
+    admin: Dict[str, Any] = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    partner = db.query(DeliveryPartner).filter(DeliveryPartner.id == partner_id).first()
+
+    if not partner:
+        raise HTTPException(404, "Delivery partner not found")
+
+    # Safer than hard delete because old orders may still refer to this partner by name.
+    partner.active = 0
+    db.commit()
+
+    return {"ok": True, "message": "Delivery partner deactivated"}
+
 # ── Admin stats ───────────────────────────────────────────────────
 @app.get("/api/admin/stats", dependencies=[Depends(require_admin)])
 def admin_stats(db: Session = Depends(get_db)):
@@ -2792,4 +2944,3 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("server:app", host="0.0.0.0", port=port, reload=False)
-
