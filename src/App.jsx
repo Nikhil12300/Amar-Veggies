@@ -1268,16 +1268,26 @@ function ShopPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState(params.category || "All");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [favoriteIds, setFavoriteIds] = useState([]);
   const cats = ["All", ...(user ? ["Favorites"] : []), ...new Set(products.map(p => p.category))];
 
   useEffect(() => {
     setLoading(true);
-    apiFetch("/products").then(d => {
-      console.log("Products ranking check:", d);
-      setLocal(d);
-      setProducts(d);
-    }).catch(()=>{}).finally(()=>setLoading(false));
+    setLoadError("");
+
+    apiFetch("/products")
+      .then(d => {
+        console.log("Products ranking check:", d);
+        setLocal(d);
+        setProducts(d);
+      })
+      .catch((err) => {
+        console.error("Products fetch failed:", err);
+        setLoadError("Could not load products. Please check your internet connection and try again.");
+      })
+      .finally(() => setLoading(false));
+
     if (user) syncFavoritesFromServer().then(setFavoriteIds);
   }, [user]);
 
@@ -1306,6 +1316,17 @@ function ShopPage() {
       </div>
       {loading
         ? <div className="empty-state"><div className="empty-state-icon">⏳</div><p>Loading fresh produce…</p></div>
+        : loadError
+        ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">⚠️</div>
+            <h3>Products could not load</h3>
+            <p>{loadError}</p>
+            <button className="btn btn-primary mt-2" onClick={() => window.location.reload()}>
+              Retry
+            </button>
+          </div>
+        )
         : filtered.length === 0
         ? <div className="empty-state"><div className="empty-state-icon">🔍</div><h3>Nothing found</h3><p>Try a different search or category</p></div>
         : <div className="grid">{filtered.map(p => <ProductCard key={p.id} product={p} onDetail={pr => nav("product",{product:pr})} />)}</div>}
