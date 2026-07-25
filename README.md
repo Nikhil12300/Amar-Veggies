@@ -73,7 +73,20 @@ $env:VITE_API_BASE_URL = 'https://api.example.com'
 npm.cmd run android:bundle
 ```
 
-3. Upload the generated bundle at
+3. Before the first Play upload, create and securely back up an upload key.
+   Copy `android/keystore.properties.example` to `android/keystore.properties`,
+   choose a strong password, and create the key:
+
+```powershell
+cd android
+keytool -genkeypair -v -keystore amar-veggies-upload.jks -alias amar-veggies-upload -keyalg RSA -keysize 2048 -validity 10000
+cd ..
+```
+
+   Re-run the bundle command after creating the key. The keystore and its
+   properties file are excluded from Git; keep a secure backup.
+
+4. Upload the generated bundle at
    `android/app/build/outputs/bundle/release/app-release.aab` to a Play Console
    internal-testing release first. Android Studio will prompt to create or use
    an upload key if the release build has not yet been signed.
