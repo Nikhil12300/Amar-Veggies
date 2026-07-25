@@ -8,14 +8,20 @@
     "dev": "vite",
     "prebuild": "node scripts/write-firebase-sw.mjs",
     "build": "vite build",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:bundle": "npm run android:sync && cd android && gradlew.bat bundleRelease",
     "check": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.2",
     "@vitejs/plugin-react": "^4.3.4",
     "vite": "^6.0.7"
   }

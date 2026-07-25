@@ -57,6 +57,30 @@ npm run build
 
 Netlify and Cloudflare are configured to publish `dist`.
 
+## Android / Google Play release
+
+The Android project is in `android/` and uses the application ID
+`com.amarveggies.app`. This ID becomes permanent after the first Play Console
+upload, so change it in `capacitor.config.json` before publishing if it is not
+the desired final ID.
+
+1. Deploy the backend over HTTPS and set its allowed CORS origin to the
+   frontend domain. Confirm `GET /api/ready` works from the public internet.
+2. Set the production backend URL for the Android build. Do not use localhost:
+
+```powershell
+$env:VITE_API_BASE_URL = 'https://api.example.com'
+npm.cmd run android:bundle
+```
+
+3. Upload the generated bundle at
+   `android/app/build/outputs/bundle/release/app-release.aab` to a Play Console
+   internal-testing release first. Android Studio will prompt to create or use
+   an upload key if the release build has not yet been signed.
+
+For subsequent builds, increment `versionCode` and `versionName` in
+`android/app/build.gradle` before running the bundle command again.
+
 ## Required Production Env
 
 Set these at minimum:
