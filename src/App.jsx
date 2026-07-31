@@ -1,5 +1,6 @@
 ﻿import React, {useState, useEffect, useContext, createContext, useCallback, useRef} from 'react';
 import {createRoot} from 'react-dom/client';
+import {animate} from 'animejs';
 import './styles.css';
 import {
   API,
@@ -828,6 +829,7 @@ function ProductCard({product, onDetail}) {
   const {user} = useContext(AuthCtx);
   const {cart, add, set, activeCoupon} = useContext(CartCtx);
   const toast = useContext(ToastCtx);
+  const cardRef = useRef(null);
   const [weight, setWeight] = useState(getDefaultSelection(product));
   const cartKey = `${product.id}_${weight}`;
   const qty = cart[cartKey]?.quantity || 0;
@@ -840,6 +842,15 @@ function ProductCard({product, onDetail}) {
   const hasCouponPrice = Boolean(activeCoupon) && discountedUnitPrice < originalUnitPrice;
   const imageSrc = productImageSrc(product);
   const [favorite, setFavorite] = useState(() => getLocalFavoriteIds().includes(product.id));
+
+  useEffect(() => {
+    animate(cardRef.current, {
+      opacity: [0, 1],
+      translateY: [20, 0],
+      duration: 600,
+      ease: 'out(3)',
+    });
+  }, []);
 
   const toggleFavorite = async (e) => {
     e.stopPropagation();
@@ -860,7 +871,7 @@ function ProductCard({product, onDetail}) {
     }
   };
   return (
-    <div className={`card ${!product.available?"unavail":""}`}>
+    <div ref={cardRef} className={`card ${!product.available?"unavail":""}`}>
       <div className="card-thumb" onClick={() => product.available && onDetail && onDetail(product)}>
         <button onClick={toggleFavorite} title={favorite ? "Remove from favorites" : "Save favorite"} style={{position:"absolute",top:8,right:8,zIndex:2,width:34,height:34,borderRadius:"50%",border:"1px solid rgba(255,255,255,.7)",background:"rgba(255,255,255,.92)",boxShadow:"0 2px 10px rgba(0,0,0,.12)",cursor:"pointer",fontSize:"1rem"}}>{favorite ? "♥" : "♡"}</button>
         {imageSrc
