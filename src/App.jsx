@@ -1,6 +1,14 @@
-﻿import React, {useState, useEffect, useContext, createContext, useCallback, useRef} from 'react';
+﻿import React, {
+  useState,
+  useEffect,
+  useContext,
+  createContext,
+  useCallback,
+  useRef
+} from 'react';
+
 import {createRoot} from 'react-dom/client';
-import {animate} from 'animejs';
+import {animate, createTimeline} from 'animejs';
 import './styles.css';
 import {
   API,
@@ -1121,8 +1129,63 @@ function HomeCouponBox() {
 function HomePage() {
   const {nav} = useContext(RouterCtx);
   const {user} = useContext(AuthCtx);
+  const heroRef = useRef(null);
+  const heroBgRef = useRef(null);
+  const heroTagRef = useRef(null);
+  const heroTitleRef = useRef(null);
+  const heroSubRef = useRef(null);
+  const heroActionsRef = useRef(null);
+  const heroStatsRef = useRef(null);
+  const featuredGridRef = useRef(null);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
+
+  useEffect(() => {
+    if (!heroRef.current) return;
+
+    const timeline = createTimeline({
+      defaults: {
+        ease: 'out(4)',
+        duration: 700
+      }
+    });
+
+    timeline
+      .add(heroBgRef.current, {
+        opacity: [0, 1],
+        scale: [1.05, 1],
+        duration: 1200
+      })
+      .add(heroTagRef.current, {
+        opacity: [0, 1],
+        translateY: [20, 0],
+        duration: 500
+      }, '-=700')
+      .add(heroTitleRef.current, {
+        opacity: [0, 1],
+        translateY: [35, 0],
+        duration: 700
+      }, '-=350')
+      .add(heroSubRef.current, {
+        opacity: [0, 1],
+        translateY: [25, 0],
+        duration: 600
+      }, '-=450')
+      .add(heroActionsRef.current, {
+        opacity: [0, 1],
+        translateY: [20, 0],
+        duration: 600
+      }, '-=400')
+      .add(heroStatsRef.current, {
+        opacity: [0, 1],
+        translateY: [20, 0],
+        duration: 600
+      }, '-=400');
+
+    return () => {
+      timeline.pause();
+    };
+  }, []);
   const [notificationsEnabled, setNotificationsEnabled] = useState(
     canUseNotifications() && Notification.permission === "granted"
   );
@@ -1183,32 +1246,139 @@ function HomePage() {
     }).catch(()=>{});
   }, []);
 
+  useEffect(() => {
+    if (!featuredGridRef.current || featured.length === 0) return;
+
+    const grid = featuredGridRef.current;
+    const cards = grid.querySelectorAll(".card");
+
+    if (!cards.length) return;
+
+    cards.forEach(card => {
+      card.style.opacity = "0";
+    });
+
+    let hasAnimated = false;
+    let timeline = null;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting || hasAnimated) return;
+
+        hasAnimated = true;
+
+        timeline = createTimeline({
+          defaults: {
+            ease: "out(4)",
+            duration: 600
+          }
+        });
+
+        timeline.add(cards, {
+          opacity: [0, 1],
+          translateY: [40, 0],
+          scale: [0.96, 1],
+          delay: (_, i) => i * 100
+        });
+
+        observer.disconnect();
+      },
+      {
+        rootMargin: "0px 0px -100px 0px"
+      }
+    );
+
+    observer.observe(grid);
+
+    return () => {
+      observer.disconnect();
+
+      if (timeline) {
+        timeline.pause();
+      }
+    };
+  }, [featured]);
+
   return (
     <div className="page">
       {/* Hero */}
-      <div className="hero">
-        <div className="hero-bg"/>
+      <div ref={heroRef} className="hero">
+        <div ref={heroBgRef} className="hero-bg"/>
+
         <div className="hero-content">
-          <div className="hero-tag">🚲 Same-day delivery available</div>
-          <h1>Fresh from the Farm,<br/><em>Right to Your Door</em></h1>
-          <p className="hero-sub">Handpicked seasonal fruits and vegetables delivered with care. No middlemen, just pure freshness.</p>
-          <div className="hero-actions">
-            <button className="btn-hero btn-hero-primary" onClick={() => nav("shop")}>Shop Now →</button>
-            {installPrompt && !isInstalled && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && (
-              <button className="btn-hero btn-hero-outline" onClick={installApp}>
-                📲 Install App
-              </button>
-            )}
-            {user && canUseNotifications() && !notificationsEnabled && (
-              <button className="btn-hero btn-hero-outline" onClick={enableNotifications}>
-                🔔 Enable Notifications
-              </button>
-            )}
+          <div ref={heroTagRef} className="hero-tag">
+            🚲 Same-day delivery available
           </div>
-          <div className="hero-stats">
-            <div><div className="hero-stat-val">{stats.products}+</div><div className="hero-stat-label">Fresh Items</div></div>
-            <div><div className="hero-stat-val">₹0</div><div className="hero-stat-label">Delivery above ₹300</div></div>
-            <div><div className="hero-stat-val">Today</div><div className="hero-stat-label">Same-day Slots</div></div>
+
+          <h1 ref={heroTitleRef}>
+            Fresh from the Farm,
+            <br/>
+            <em>Right to Your Door</em>
+          </h1>
+
+          <p ref={heroSubRef} className="hero-sub">
+            Handpicked seasonal fruits and vegetables delivered with care.
+            No middlemen, just pure freshness.
+          </p>
+
+          <div ref={heroActionsRef} className="hero-actions">
+            <button
+              className="btn-hero btn-hero-primary"
+              onClick={() => nav("shop")}
+            >
+              Shop Now →
+            </button>
+
+            {installPrompt &&
+              !isInstalled &&
+              /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && (
+                <button
+                  className="btn-hero btn-hero-outline"
+                  onClick={installApp}
+                >
+                  📲 Install App
+                </button>
+              )}
+
+            {user &&
+              canUseNotifications() &&
+              !notificationsEnabled && (
+                <button
+                  className="btn-hero btn-hero-outline"
+                  onClick={enableNotifications}
+                >
+                  🔔 Enable Notifications
+                </button>
+              )}
+          </div>
+
+          <div ref={heroStatsRef} className="hero-stats">
+            <div>
+              <div className="hero-stat-val">
+                {stats.products}+
+              </div>
+              <div className="hero-stat-label">
+                Fresh Items
+              </div>
+            </div>
+
+            <div>
+              <div className="hero-stat-val">
+                ₹0
+              </div>
+              <div className="hero-stat-label">
+                Delivery above ₹300
+              </div>
+            </div>
+
+            <div>
+              <div className="hero-stat-val">
+                Today
+              </div>
+              <div className="hero-stat-label">
+                Same-day Slots
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1236,10 +1406,23 @@ function HomePage() {
           <>
             <div className="section-hd">
               <h2 className="section-title">Featured Picks ⭐</h2>
-              <button className="section-link btn" onClick={() => nav("shop")}>View all →</button>
+
+              <button
+                className="section-link btn"
+                onClick={() => nav("shop")}
+              >
+                View all →
+              </button>
             </div>
-            <div className="grid">
-              {featured.map(p => <ProductCard key={p.id} product={p} onDetail={pr => nav("product", {product: pr})} />)}
+
+            <div ref={featuredGridRef} className="grid">
+              {featured.map(p => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  onDetail={pr => nav("product", {product: pr})}
+                />
+              ))}
             </div>
           </>
         )}
